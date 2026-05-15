@@ -1,4 +1,6 @@
+import { currentUser } from "@clerk/nextjs/server";
 import { Columns3 } from "lucide-react";
+import { redirect } from "next/navigation";
 
 import { listKanbanBoards } from "@/app/kanban/actions";
 import { KanbanWorkspace } from "@/app/kanban/kanban-workspace";
@@ -6,6 +8,11 @@ import { AppShell } from "@/components/app-shell";
 import { syncCurrentUserToDatabase } from "@/lib/sync-user";
 
 export default async function KanbanPage() {
+  const user = await currentUser();
+  if (!user) {
+    redirect("/sign-in");
+  }
+
   await syncCurrentUserToDatabase();
   const boards = await listKanbanBoards();
 

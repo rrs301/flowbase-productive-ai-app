@@ -13,6 +13,10 @@
   },
   "dependencies": {
     "@clerk/nextjs": "^7.2.3",
+    "@liveblocks/client": "^3.19.1",
+    "@liveblocks/node": "^3.19.1",
+    "@liveblocks/react": "^3.19.1",
+    "@liveblocks/react-ui": "^3.19.1",
     "@neondatabase/serverless": "^1.0.2",
     "@radix-ui/react-slot": "^1.2.4",
     "class-variance-authority": "^0.7.1",
