@@ -22,6 +22,7 @@ import { ReactNode, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { UserButton } from "@clerk/nextjs";
 
 type NavItem = {
   label: string;
@@ -178,7 +179,8 @@ export function AppShell({ activePage, children }: AppShellProps) {
               )}
             >
               <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-sage-100 text-sage-700">
-                <Users className="size-3.5" aria-hidden="true" />
+                {/* <Users className="size-3.5" aria-hidden="true" /> */}
+                <UserButton />
               </div>
               <div
                 className={cn(

@@ -6,13 +6,19 @@ import {
   Columns3,
   FileText,
   GripVertical,
+  MessageCircle,
   MoreHorizontal,
   Pencil,
   Plus,
-  Tag,
+  Settings,
+  Share2,
   Trash2,
+  UserPlus,
+  Users,
   X,
 } from "lucide-react";
+import { RoomProvider, useOthers, useSelf, useThreads } from "@liveblocks/react";
+import { Composer, Thread } from "@liveblocks/react-ui";
 import { FormEvent, ReactNode, useMemo, useState, useTransition } from "react";
 
 import {
@@ -23,8 +29,10 @@ import {
   deleteKanbanBoard,
   deleteKanbanColumn,
   deleteKanbanTask,
+  inviteKanbanCollaborator,
   KanbanBoardDTO,
   KanbanColumnDTO,
+  KanbanCollaboratorDTO,
   KanbanLabelDTO,
   KanbanTaskDTO,
   moveKanbanTask,
@@ -35,6 +43,7 @@ import {
 } from "@/app/kanban/actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { getBoardRoomId } from "@/lib/liveblocks-room";
 import { cn } from "@/lib/utils";
 
 type BoardForm = {
@@ -110,6 +119,9 @@ export function KanbanWorkspace({ initialBoards }: { initialBoards: KanbanBoardD
   const [editingTaskId, setEditingTaskId] = useState<number | null>(null);
   const [taskForm, setTaskForm] = useState<TaskForm>(emptyTaskForm());
   const [draggingTaskId, setDraggingTaskId] = useState<number | null>(null);
+  const [collaborationOpen, setCollaborationOpen] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [commentingTask, setCommentingTask] = useState<KanbanTaskDTO | null>(null);
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
 
@@ -134,6 +146,7 @@ export function KanbanWorkspace({ initialBoards }: { initialBoards: KanbanBoardD
   }
 
   function openEditBoard(board: KanbanBoardDTO) {
+    if (!board.canManage) return;
     setEditingBoardId(board.id);
     setBoardForm({ name: board.name, color: board.color });
     setError("");
@@ -160,6 +173,8 @@ export function KanbanWorkspace({ initialBoards }: { initialBoards: KanbanBoardD
   }
 
   function removeBoard(boardId: number) {
+    const board = boards.find((nextBoard) => nextBoard.id === boardId);
+    if (!board?.canManage) return;
     if (!window.confirm("Delete this board and all of its tasks?")) return;
     setError("");
     startTransition(async () => {
@@ -249,14 +264,29 @@ export function KanbanWorkspace({ initialBoards }: { initialBoards: KanbanBoardD
     });
   }
 
-  function addLabel() {
+  function addLabel(color = taskForm.labelColor) {
     const name = taskForm.labelName.trim();
     if (!name) return;
     setTaskForm((current) => ({
       ...current,
       labelName: "",
-      labels: [...current.labels, { name, color: current.labelColor }].slice(0, 5),
+      labelColor: color,
+      labels: [...current.labels, { name, color }].slice(0, 5),
     }));
+  }
+
+  function submitInvite(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selectedBoard) return;
+    setError("");
+    startTransition(async () => {
+      try {
+        replaceBoards(await inviteKanbanCollaborator({ boardId: selectedBoard.id, email: inviteEmail }));
+        setInviteEmail("");
+      } catch (requestError) {
+        setError(requestError instanceof Error ? requestError.message : "Could not invite that collaborator.");
+      }
+    });
   }
 
   function removeTask(taskId: number) {
@@ -318,12 +348,16 @@ export function KanbanWorkspace({ initialBoards }: { initialBoards: KanbanBoardD
                   <span className={cn("size-2.5 shrink-0 rounded-full", boardStyles[board.color].dot)} aria-hidden="true" />
                   <span className="truncate">{board.name}</span>
                 </button>
-                <Button variant="ghost" size="icon" className="size-8 rounded-lg opacity-100 sm:opacity-0 sm:group-hover:opacity-100" onClick={() => openEditBoard(board)}>
-                  <Pencil className="size-3.5" aria-hidden="true" />
-                </Button>
-                <Button variant="ghost" size="icon" className="size-8 rounded-lg text-muted-foreground hover:text-destructive" onClick={() => removeBoard(board.id)}>
-                  <Trash2 className="size-3.5" aria-hidden="true" />
-                </Button>
+                {board.canManage && (
+                  <>
+                    <Button variant="ghost" size="icon" className="size-8 rounded-lg opacity-100 sm:opacity-0 sm:group-hover:opacity-100" onClick={() => openEditBoard(board)}>
+                      <Pencil className="size-3.5" aria-hidden="true" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="size-8 rounded-lg text-muted-foreground hover:text-destructive" onClick={() => removeBoard(board.id)}>
+                      <Trash2 className="size-3.5" aria-hidden="true" />
+                    </Button>
+                  </>
+                )}
               </div>
             ))
           )}
@@ -334,7 +368,8 @@ export function KanbanWorkspace({ initialBoards }: { initialBoards: KanbanBoardD
         {error && <p className="rounded-lg border border-clay-200 bg-clay-100 px-3 py-2 text-sm text-clay-800">{error}</p>}
 
         {selectedBoard ? (
-          <Card className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border-border bg-card shadow-sm">
+          <RoomProvider key={selectedBoard.id} id={getBoardRoomId(selectedBoard.id)} initialPresence={{ status: "active" }}>
+            <Card className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border-border bg-card shadow-sm">
             <CardHeader className="shrink-0 gap-4 p-4 sm:p-5">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                 <div className="min-w-0">
@@ -345,34 +380,48 @@ export function KanbanWorkspace({ initialBoards }: { initialBoards: KanbanBoardD
                   <p className="mt-1 text-sm text-muted-foreground">
                     {selectedBoard.columns.length}/5 columns · {selectedBoard.columns.reduce((count, column) => count + column.tasks.length, 0)} tasks
                   </p>
+                  <ActiveCollaborators board={selectedBoard} />
                 </div>
-                <form className="flex w-full flex-col gap-2 sm:w-auto sm:min-w-72 sm:flex-row" onSubmit={submitColumn}>
-                  <input
-                    value={columnName}
-                    onChange={(event) => setColumnName(event.target.value)}
-                    className="h-9 min-w-0 rounded-lg border border-input bg-background px-3 text-sm outline-none focus:ring-1 focus:ring-ring"
-                    placeholder={editingColumnId ? "Rename column" : "New column name"}
-                    disabled={!editingColumnId && selectedBoard.columns.length >= 5}
-                  />
-                  <Button className="rounded-lg" disabled={isPending || (!editingColumnId && selectedBoard.columns.length >= 5)}>
-                    {editingColumnId ? <Check className="mr-2 size-4" aria-hidden="true" /> : <Plus className="mr-2 size-4" aria-hidden="true" />}
-                    {editingColumnId ? "Save" : "Column"}
-                  </Button>
-                  {editingColumnId && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      className="rounded-lg bg-background"
-                      onClick={() => {
-                        setEditingColumnId(null);
-                        setColumnName("");
-                      }}
-                    >
-                      <X className="size-4" aria-hidden="true" />
+                <div className="flex w-full flex-col gap-2 sm:w-auto">
+                  <div className="flex flex-wrap justify-start gap-2 lg:justify-end">
+                    <Button type="button" variant="outline" className="rounded-lg bg-background" onClick={() => setCollaborationOpen(true)}>
+                      <Users className="mr-2 size-4" aria-hidden="true" />
+                      Collaboration
                     </Button>
-                  )}
-                </form>
+                    {selectedBoard.canManage && (
+                      <Button type="button" variant="outline" size="icon" className="rounded-lg bg-background" onClick={() => openEditBoard(selectedBoard)} aria-label="Board settings">
+                        <Settings className="size-4" aria-hidden="true" />
+                      </Button>
+                    )}
+                  </div>
+                  <form className="flex w-full flex-col gap-2 sm:min-w-72 sm:flex-row" onSubmit={submitColumn}>
+                    <input
+                      value={columnName}
+                      onChange={(event) => setColumnName(event.target.value)}
+                      className="h-9 min-w-0 rounded-lg border border-input bg-background px-3 text-sm outline-none focus:ring-1 focus:ring-ring"
+                      placeholder={editingColumnId ? "Rename column" : "New column name"}
+                      disabled={!editingColumnId && selectedBoard.columns.length >= 5}
+                    />
+                    <Button className="rounded-lg" disabled={isPending || (!editingColumnId && selectedBoard.columns.length >= 5)}>
+                      {editingColumnId ? <Check className="mr-2 size-4" aria-hidden="true" /> : <Plus className="mr-2 size-4" aria-hidden="true" />}
+                      {editingColumnId ? "Save" : "Column"}
+                    </Button>
+                    {editingColumnId && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="rounded-lg bg-background"
+                        onClick={() => {
+                          setEditingColumnId(null);
+                          setColumnName("");
+                        }}
+                      >
+                        <X className="size-4" aria-hidden="true" />
+                      </Button>
+                    )}
+                  </form>
+                </div>
               </div>
             </CardHeader>
 
@@ -389,6 +438,7 @@ export function KanbanWorkspace({ initialBoards }: { initialBoards: KanbanBoardD
                     }}
                     onDeleteColumn={removeColumn}
                     onEditTask={openEditTask}
+                    onOpenComments={setCommentingTask}
                     onDeleteTask={removeTask}
                     onDragTask={setDraggingTaskId}
                     onDropTask={dropTask}
@@ -396,7 +446,19 @@ export function KanbanWorkspace({ initialBoards }: { initialBoards: KanbanBoardD
                 ))}
               </div>
             </CardContent>
-          </Card>
+            </Card>
+            {collaborationOpen && (
+              <CollaborationDialog
+                board={selectedBoard}
+                inviteEmail={inviteEmail}
+                isPending={isPending}
+                onInviteEmailChange={setInviteEmail}
+                onInvite={submitInvite}
+                onClose={() => setCollaborationOpen(false)}
+              />
+            )}
+            {commentingTask && <TaskCommentsDialog board={selectedBoard} task={commentingTask} onClose={() => setCommentingTask(null)} />}
+          </RoomProvider>
         ) : (
           <Card className="rounded-lg border-border bg-card shadow-sm">
             <CardContent className="p-10 text-center">
@@ -522,28 +584,42 @@ export function KanbanWorkspace({ initialBoards }: { initialBoards: KanbanBoardD
             </div>
             <div>
               <p className="text-sm font-medium">Labels</p>
-              <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+              <div className="mt-2 space-y-2">
                 <input
                   value={taskForm.labelName}
                   onChange={(event) => setTaskForm((current) => ({ ...current, labelName: event.target.value }))}
-                  className="h-10 min-w-0 flex-1 rounded-lg border border-input bg-background px-3 text-sm outline-none focus:ring-1 focus:ring-ring"
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      addLabel();
+                    }
+                  }}
+                  className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none focus:ring-1 focus:ring-ring"
                   placeholder="Design"
+                  disabled={taskForm.labels.length >= 5}
                 />
-                <select
-                  value={taskForm.labelColor}
-                  onChange={(event) => setTaskForm((current) => ({ ...current, labelColor: event.target.value as KanbanLabelDTO["color"] }))}
-                  className="h-10 rounded-lg border border-input bg-background px-3 text-sm outline-none focus:ring-1 focus:ring-ring"
-                >
-                  {Object.keys(labelStyles).map((color) => (
-                    <option key={color} value={color}>
-                      {color}
-                    </option>
+                <div className="flex flex-wrap gap-2">
+                  {(Object.keys(labelStyles) as KanbanLabelDTO["color"][]).map((color) => (
+                    <button
+                      key={color}
+                      type="button"
+                      onClick={() => {
+                        setTaskForm((current) => ({ ...current, labelColor: color }));
+                        addLabel(color);
+                      }}
+                      className={cn(
+                        "flex size-8 items-center justify-center rounded-lg border transition hover:-translate-y-0.5",
+                        labelStyles[color],
+                        taskForm.labelColor === color ? "ring-2 ring-ring" : "opacity-80 hover:opacity-100",
+                      )}
+                      aria-label={`${color} label color`}
+                      title={color}
+                      disabled={taskForm.labels.length >= 5}
+                    >
+                      <span className="size-3.5 rounded-full bg-current" aria-hidden="true" />
+                    </button>
                   ))}
-                </select>
-                <Button type="button" variant="outline" className="rounded-lg bg-background" onClick={addLabel} disabled={taskForm.labels.length >= 5}>
-                  <Tag className="mr-2 size-4" aria-hidden="true" />
-                  Add
-                </Button>
+                </div>
               </div>
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {taskForm.labels.map((label, index) => (
@@ -588,6 +664,7 @@ function KanbanColumn({
   onEditColumn,
   onDeleteColumn,
   onEditTask,
+  onOpenComments,
   onDeleteTask,
   onDragTask,
   onDropTask,
@@ -597,6 +674,7 @@ function KanbanColumn({
   onEditColumn: (column: KanbanColumnDTO) => void;
   onDeleteColumn: (columnId: number) => void;
   onEditTask: (task: KanbanTaskDTO) => void;
+  onOpenComments: (task: KanbanTaskDTO) => void;
   onDeleteTask: (taskId: number) => void;
   onDragTask: (taskId: number | null) => void;
   onDropTask: (columnId: number, position: number) => void;
@@ -633,6 +711,7 @@ function KanbanColumn({
             key={task.id}
             task={task}
             onEdit={() => onEditTask(task)}
+            onOpenComments={() => onOpenComments(task)}
             onDelete={() => onDeleteTask(task.id)}
             onDragTask={onDragTask}
             onDropBefore={() => onDropTask(column.id, index)}
@@ -656,16 +735,24 @@ function KanbanColumn({
 function TaskCard({
   task,
   onEdit,
+  onOpenComments,
   onDelete,
   onDragTask,
   onDropBefore,
 }: {
   task: KanbanTaskDTO;
   onEdit: () => void;
+  onOpenComments: () => void;
   onDelete: () => void;
   onDragTask: (taskId: number | null) => void;
   onDropBefore: () => void;
 }) {
+  const { threads } = useThreads({
+    query: { metadata: { kind: "kanban-task", taskId: task.id } },
+    scrollOnLoad: false,
+  });
+  const commentCount = threads?.reduce((count, thread) => count + thread.comments.filter((comment) => !comment.deletedAt).length, 0) ?? 0;
+
   return (
     <article
       draggable
@@ -714,11 +801,201 @@ function TaskCard({
             </span>
           )}
         </div>
-        <Button variant="ghost" size="icon" className="size-7 rounded-lg text-muted-foreground hover:text-destructive" onClick={onDelete} aria-label="Delete task">
-          <Trash2 className="size-3.5" aria-hidden="true" />
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button variant="ghost" size="sm" className="h-7 rounded-lg px-2 text-xs text-muted-foreground hover:text-foreground" onClick={onOpenComments} aria-label="Open task comments">
+            <MessageCircle className="mr-1 size-3.5" aria-hidden="true" />
+            {commentCount}
+          </Button>
+          <Button variant="ghost" size="icon" className="size-7 rounded-lg text-muted-foreground hover:text-destructive" onClick={onDelete} aria-label="Delete task">
+            <Trash2 className="size-3.5" aria-hidden="true" />
+          </Button>
+        </div>
       </div>
     </article>
+  );
+}
+
+function ActiveCollaborators({ board }: { board: KanbanBoardDTO }) {
+  const self = useSelf((me) => ({ id: me.id, info: me.info }));
+  const others = useOthers((others) => others.map((other) => ({ connectionId: other.connectionId, id: other.id, info: other.info })));
+  const active = [
+    ...(self ? [{ key: `self-${self.id}`, id: self.id, name: self.info.name || self.info.email, email: self.info.email, color: self.info.color, initials: self.info.initials }] : []),
+    ...others.map((other) => ({
+      key: `${other.id}-${other.connectionId}`,
+      id: other.id,
+      name: other.info.name || other.info.email,
+      email: other.info.email,
+      color: other.info.color,
+      initials: other.info.initials,
+    })),
+  ];
+  const collaborators = [board.owner, ...board.shares];
+
+  return (
+    <div className="mt-3 flex min-w-0 flex-wrap items-center gap-2">
+      <div className="flex -space-x-2">
+        {(active.length > 0 ? active : collaborators.slice(0, 4)).map((collaborator) => (
+          <AvatarCircle
+            key={"key" in collaborator ? collaborator.key : collaborator.liveblocksId}
+            label={collaborator.name || collaborator.email}
+            initials={collaborator.initials}
+            color={collaborator.color}
+            active={active.some((person) => person.email === collaborator.email)}
+          />
+        ))}
+      </div>
+      <span className="text-xs text-muted-foreground">
+        {active.length > 0 ? `${active.length} active now` : "No active collaborators"}
+      </span>
+    </div>
+  );
+}
+
+function CollaborationDialog({
+  board,
+  inviteEmail,
+  isPending,
+  onInviteEmailChange,
+  onInvite,
+  onClose,
+}: {
+  board: KanbanBoardDTO;
+  inviteEmail: string;
+  isPending: boolean;
+  onInviteEmailChange: (email: string) => void;
+  onInvite: (event: FormEvent<HTMLFormElement>) => void;
+  onClose: () => void;
+}) {
+  const others = useOthers((others) => others.map((other) => other.info.email));
+  const self = useSelf((me) => me.info.email);
+  const activeEmails = new Set([...(self ? [self] : []), ...others]);
+  const collaborators = [board.owner, ...board.shares];
+
+  return (
+    <Dialog title="Collaboration" onClose={onClose}>
+      <div className="space-y-4">
+        <div className="rounded-lg border border-border bg-background p-3">
+          <div className="mb-3 flex items-center gap-2 text-sm font-semibold">
+            <Share2 className="size-4 text-primary" aria-hidden="true" />
+            Shared with
+          </div>
+          <div className="space-y-2">
+            {collaborators.map((collaborator) => (
+              <CollaboratorRow key={`${collaborator.role}-${collaborator.email}`} collaborator={collaborator} active={activeEmails.has(collaborator.email)} />
+            ))}
+            {board.shares.length === 0 && (
+              <div className="rounded-lg border border-dashed border-border bg-card p-4 text-center text-sm text-muted-foreground">
+                Invite someone to bring them into this board.
+              </div>
+            )}
+          </div>
+        </div>
+        {board.canManage ? (
+          <form className="flex flex-col gap-2 sm:flex-row" onSubmit={onInvite}>
+            <input
+              type="email"
+              value={inviteEmail}
+              onChange={(event) => onInviteEmailChange(event.target.value)}
+              className="h-10 min-w-0 flex-1 rounded-lg border border-input bg-background px-3 text-sm outline-none focus:ring-1 focus:ring-ring"
+              placeholder="teammate@example.com"
+              required
+            />
+            <Button className="rounded-lg" disabled={isPending}>
+              <UserPlus className="mr-2 size-4" aria-hidden="true" />
+              Invite
+            </Button>
+          </form>
+        ) : (
+          <p className="rounded-lg bg-muted px-3 py-2 text-sm text-muted-foreground">Only the board owner can invite collaborators.</p>
+        )}
+      </div>
+    </Dialog>
+  );
+}
+
+function TaskCommentsDialog({ board, task, onClose }: { board: KanbanBoardDTO; task: KanbanTaskDTO; onClose: () => void }) {
+  const { threads, isLoading, error } = useThreads({
+    query: { metadata: { kind: "kanban-task", boardId: board.id, taskId: task.id } },
+    scrollOnLoad: false,
+  });
+
+  return (
+    <Dialog title="Task comments" onClose={onClose}>
+      <div className="space-y-4">
+        <div className="rounded-lg border border-border bg-background p-3">
+          <p className="text-sm font-semibold">{task.title}</p>
+          {task.description && <p className="mt-1 text-xs leading-5 text-muted-foreground">{task.description}</p>}
+        </div>
+        {isLoading && <p className="rounded-lg bg-muted px-3 py-4 text-center text-sm text-muted-foreground">Loading comments...</p>}
+        {error && <p className="rounded-lg border border-clay-200 bg-clay-100 px-3 py-2 text-sm text-clay-800">Could not load comments.</p>}
+        {!isLoading && !error && (
+          <div className="max-h-[55vh] space-y-3 overflow-y-auto pr-1">
+            {threads && threads.length > 0 ? (
+              threads.map((thread) => (
+                <Thread key={thread.id} thread={thread} showResolveAction={false} showReactions={false} className="rounded-lg border border-border bg-background p-2" />
+              ))
+            ) : (
+              <div className="rounded-lg border border-dashed border-border bg-background p-5 text-center">
+                <MessageCircle className="mx-auto size-5 text-muted-foreground" aria-hidden="true" />
+                <p className="mt-2 text-sm font-medium">No comments yet</p>
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">Start the discussion for this task.</p>
+              </div>
+            )}
+          </div>
+        )}
+        <Composer
+          metadata={{ kind: "kanban-task", boardId: board.id, taskId: task.id }}
+          showAttachments={false}
+          showFormattingControls={false}
+          autoFocus
+          className="rounded-lg border border-border bg-background p-2"
+        />
+      </div>
+    </Dialog>
+  );
+}
+
+function CollaboratorRow({ collaborator, active }: { collaborator: KanbanCollaboratorDTO; active: boolean }) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-lg bg-card px-3 py-2">
+      <div className="flex min-w-0 items-center gap-2">
+        <AvatarCircle label={collaborator.name || collaborator.email} initials={collaborator.initials} color={collaborator.color} active={active} />
+        <div className="min-w-0">
+          <p className="truncate text-sm font-medium">{collaborator.name || collaborator.email}</p>
+          <p className="truncate text-xs text-muted-foreground">{collaborator.email}</p>
+        </div>
+      </div>
+      <span className="shrink-0 rounded-md bg-muted px-2 py-1 text-[11px] font-semibold capitalize text-muted-foreground">
+        {collaborator.role}
+      </span>
+    </div>
+  );
+}
+
+function AvatarCircle({
+  label,
+  initials,
+  color,
+  active,
+}: {
+  label: string;
+  initials: string;
+  color: string;
+  active: boolean;
+}) {
+  return (
+    <span
+      className={cn(
+        "relative flex size-8 shrink-0 items-center justify-center rounded-full border-2 border-card text-xs font-bold text-white shadow-sm",
+        active && "ring-2 ring-sage-400",
+      )}
+      style={{ backgroundColor: color }}
+      title={label}
+      aria-label={label}
+    >
+      {initials}
+      <span className={cn("absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full border border-card", active ? "bg-sage-400" : "bg-muted")} aria-hidden="true" />
+    </span>
   );
 }
 
