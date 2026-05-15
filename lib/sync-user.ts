@@ -8,8 +8,9 @@ export async function syncCurrentUserToDatabase() {
   const user = await currentUser();
 
   const email = user?.primaryEmailAddress?.emailAddress;
+  const clerkId = user?.id;
 
-  if (!email) {
+  if (!email || !clerkId) {
     return;
   }
 
@@ -22,12 +23,14 @@ export async function syncCurrentUserToDatabase() {
   await db
     .insert(users)
     .values({
+      clerkId,
       email,
       name,
     })
     .onConflictDoUpdate({
-      target: users.email,
+      target: users.clerkId,
       set: {
+        email,
         name,
       },
     });
