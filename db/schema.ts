@@ -1,4 +1,4 @@
-import { boolean, integer, pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
+import { boolean, integer, jsonb, pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
 
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
@@ -24,7 +24,53 @@ export const calendarItems = pgTable("calendar_items", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+export const kanbanBoards = pgTable("kanban_boards", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  color: text("color").notNull().default("sage"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const kanbanColumns = pgTable("kanban_columns", {
+  id: serial("id").primaryKey(),
+  boardId: integer("board_id")
+    .notNull()
+    .references(() => kanbanBoards.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  position: integer("position").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const kanbanTasks = pgTable("kanban_tasks", {
+  id: serial("id").primaryKey(),
+  columnId: integer("column_id")
+    .notNull()
+    .references(() => kanbanColumns.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  description: text("description"),
+  dueDate: text("due_date").notNull(),
+  priority: text("priority").notNull().default("medium"),
+  labels: jsonb("labels").$type<{ name: string; color: string }[]>().notNull().default([]),
+  syncCalendar: boolean("sync_calendar").notNull().default(false),
+  linkNotes: boolean("link_notes").notNull().default(false),
+  calendarItemId: integer("calendar_item_id").references(() => calendarItems.id, { onDelete: "set null" }),
+  position: integer("position").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type CalendarItem = typeof calendarItems.$inferSelect;
 export type NewCalendarItem = typeof calendarItems.$inferInsert;
+export type KanbanBoard = typeof kanbanBoards.$inferSelect;
+export type NewKanbanBoard = typeof kanbanBoards.$inferInsert;
+export type KanbanColumn = typeof kanbanColumns.$inferSelect;
+export type NewKanbanColumn = typeof kanbanColumns.$inferInsert;
+export type KanbanTask = typeof kanbanTasks.$inferSelect;
+export type NewKanbanTask = typeof kanbanTasks.$inferInsert;
