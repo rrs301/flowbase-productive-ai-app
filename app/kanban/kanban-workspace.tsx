@@ -370,82 +370,82 @@ export function KanbanWorkspace({ initialBoards }: { initialBoards: KanbanBoardD
         {selectedBoard ? (
           <RoomProvider key={selectedBoard.id} id={getBoardRoomId(selectedBoard.id)} initialPresence={{ status: "active" }}>
             <Card className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border-border bg-card shadow-sm">
-            <CardHeader className="shrink-0 gap-4 p-4 sm:p-5">
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                <div className="min-w-0">
-                  <div className="flex min-w-0 items-center gap-2">
-                    <span className={cn("size-3 shrink-0 rounded-full", boardStyles[selectedBoard.color].dot)} aria-hidden="true" />
-                    <CardTitle className="truncate text-xl">{selectedBoard.name}</CardTitle>
+              <CardHeader className="shrink-0 gap-4 p-4 sm:p-5">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                  <div className="min-w-0">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <span className={cn("size-3 shrink-0 rounded-full", boardStyles[selectedBoard.color].dot)} aria-hidden="true" />
+                      <CardTitle className="truncate text-xl">{selectedBoard.name}</CardTitle>
+                    </div>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {selectedBoard.columns.length}/5 columns · {selectedBoard.columns.reduce((count, column) => count + column.tasks.length, 0)} tasks
+                    </p>
+                    <ActiveCollaborators board={selectedBoard} />
                   </div>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    {selectedBoard.columns.length}/5 columns · {selectedBoard.columns.reduce((count, column) => count + column.tasks.length, 0)} tasks
-                  </p>
-                  <ActiveCollaborators board={selectedBoard} />
-                </div>
-                <div className="flex w-full flex-col gap-2 sm:w-auto">
-                  <div className="flex flex-wrap justify-start gap-2 lg:justify-end">
-                    <Button type="button" variant="outline" className="rounded-lg bg-background" onClick={() => setCollaborationOpen(true)}>
-                      <Users className="mr-2 size-4" aria-hidden="true" />
-                      Collaboration
-                    </Button>
-                    {selectedBoard.canManage && (
-                      <Button type="button" variant="outline" size="icon" className="rounded-lg bg-background" onClick={() => openEditBoard(selectedBoard)} aria-label="Board settings">
-                        <Settings className="size-4" aria-hidden="true" />
+                  <div className="flex w-full flex-col gap-2 sm:w-auto">
+                    <div className="flex flex-wrap justify-start gap-2 lg:justify-end">
+                      <Button type="button" variant="outline" className="rounded-lg bg-background" onClick={() => setCollaborationOpen(true)}>
+                        <Users className="mr-2 size-4" aria-hidden="true" />
+                        Collaboration
                       </Button>
-                    )}
+                      {selectedBoard.canManage && (
+                        <Button type="button" variant="outline" size="icon" className="rounded-lg bg-background" onClick={() => openEditBoard(selectedBoard)} aria-label="Board settings">
+                          <Settings className="size-4" aria-hidden="true" />
+                        </Button>
+                      )}
+                    </div>
+                    <form className="flex w-full flex-col gap-2 sm:min-w-72 sm:flex-row" onSubmit={submitColumn}>
+                      <input
+                        value={columnName}
+                        onChange={(event) => setColumnName(event.target.value)}
+                        className="h-9 min-w-0 rounded-lg border border-input bg-background px-3 text-sm outline-none focus:ring-1 focus:ring-ring"
+                        placeholder={editingColumnId ? "Rename column" : "New column name"}
+                        disabled={!editingColumnId && selectedBoard.columns.length >= 5}
+                      />
+                      <Button className="rounded-lg" disabled={isPending || (!editingColumnId && selectedBoard.columns.length >= 5)}>
+                        {editingColumnId ? <Check className="mr-2 size-4" aria-hidden="true" /> : <Plus className="mr-2 size-4" aria-hidden="true" />}
+                        {editingColumnId ? "Save" : "Column"}
+                      </Button>
+                      {editingColumnId && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="rounded-lg bg-background"
+                          onClick={() => {
+                            setEditingColumnId(null);
+                            setColumnName("");
+                          }}
+                        >
+                          <X className="size-4" aria-hidden="true" />
+                        </Button>
+                      )}
+                    </form>
                   </div>
-                  <form className="flex w-full flex-col gap-2 sm:min-w-72 sm:flex-row" onSubmit={submitColumn}>
-                    <input
-                      value={columnName}
-                      onChange={(event) => setColumnName(event.target.value)}
-                      className="h-9 min-w-0 rounded-lg border border-input bg-background px-3 text-sm outline-none focus:ring-1 focus:ring-ring"
-                      placeholder={editingColumnId ? "Rename column" : "New column name"}
-                      disabled={!editingColumnId && selectedBoard.columns.length >= 5}
-                    />
-                    <Button className="rounded-lg" disabled={isPending || (!editingColumnId && selectedBoard.columns.length >= 5)}>
-                      {editingColumnId ? <Check className="mr-2 size-4" aria-hidden="true" /> : <Plus className="mr-2 size-4" aria-hidden="true" />}
-                      {editingColumnId ? "Save" : "Column"}
-                    </Button>
-                    {editingColumnId && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="icon"
-                        className="rounded-lg bg-background"
-                        onClick={() => {
-                          setEditingColumnId(null);
-                          setColumnName("");
-                        }}
-                      >
-                        <X className="size-4" aria-hidden="true" />
-                      </Button>
-                    )}
-                  </form>
                 </div>
-              </div>
-            </CardHeader>
+              </CardHeader>
 
-            <CardContent className="min-h-0 flex-1 p-4 pt-0 sm:p-5 sm:pt-0">
-              <div className="flex h-full min-w-0 gap-4 overflow-x-auto pb-2">
-                {selectedBoard.columns.map((column) => (
-                  <KanbanColumn
-                    key={column.id}
-                    column={column}
-                    onAddTask={openCreateTask}
-                    onEditColumn={(nextColumn) => {
-                      setEditingColumnId(nextColumn.id);
-                      setColumnName(nextColumn.name);
-                    }}
-                    onDeleteColumn={removeColumn}
-                    onEditTask={openEditTask}
-                    onOpenComments={setCommentingTask}
-                    onDeleteTask={removeTask}
-                    onDragTask={setDraggingTaskId}
-                    onDropTask={dropTask}
-                  />
-                ))}
-              </div>
-            </CardContent>
+              <CardContent className="min-h-0 flex-1 p-4 pt-0 sm:p-5 sm:pt-0">
+                <div className="flex h-full min-w-0 gap-4 overflow-x-auto pb-2">
+                  {selectedBoard.columns.map((column) => (
+                    <KanbanColumn
+                      key={column.id}
+                      column={column}
+                      onAddTask={openCreateTask}
+                      onEditColumn={(nextColumn) => {
+                        setEditingColumnId(nextColumn.id);
+                        setColumnName(nextColumn.name);
+                      }}
+                      onDeleteColumn={removeColumn}
+                      onEditTask={openEditTask}
+                      onOpenComments={setCommentingTask}
+                      onDeleteTask={removeTask}
+                      onDragTask={setDraggingTaskId}
+                      onDropTask={dropTask}
+                    />
+                  ))}
+                </div>
+              </CardContent>
             </Card>
             {collaborationOpen && (
               <CollaborationDialog
