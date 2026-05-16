@@ -19,6 +19,7 @@ import {
   Lightbulb,
   List,
   ListOrdered,
+  Mic,
   Minus,
   MoreHorizontal,
   PenLine,
@@ -36,6 +37,7 @@ import {
 import {
   KeyboardEvent as ReactKeyboardEvent,
   ReactNode,
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -61,6 +63,7 @@ import {
 } from "@/app/notes/actions";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useAssemblyAIStreaming } from "./use-assemblyai-streaming";
 
 type SaveState = "saved" | "saving" | "error";
 
@@ -274,6 +277,8 @@ export function NotesWorkspace({
   const titleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const suppressSave = useRef(false);
   const slashRef = useRef(slashState);
+  const dictationRange = useRef<{ from: number; to: number } | null>(null);
+  const dictationInsertPosition = useRef<number | null>(null);
 
   const editor = useEditor({
     extensions: [
@@ -385,9 +390,85 @@ export function NotesWorkspace({
     },
   });
 
+  const insertTranscript = useCallback(
+    ({
+      transcript,
+      isFinal,
+    }: {
+      transcript: string;
+      isFinal: boolean;
+    }) => {
+      if (!editor || !selectedNote || selectedNote.isTrashed) return;
+
+      const text = isFinal ? `${transcript.trim()} ` : transcript;
+      if (!text.trim()) return;
+
+      const docEnd = editor.state.doc.content.size;
+      const range = dictationRange.current ?? {
+        from: dictationInsertPosition.current ?? docEnd,
+        to: dictationInsertPosition.current ?? docEnd,
+      };
+      const from = Math.min(range.from, editor.state.doc.content.size);
+      const to = Math.min(range.to, editor.state.doc.content.size);
+
+      editor
+        .chain()
+        .focus()
+        .deleteRange({ from, to })
+        .insertContent({
+          type: "text",
+          text,
+        })
+        .run();
+
+      const nextTo = from + text.length;
+      dictationInsertPosition.current = nextTo;
+
+      dictationRange.current = isFinal
+        ? null
+        : {
+            from,
+            to: nextTo,
+          };
+    },
+    [editor, selectedNote]
+  );
+
+  const {
+    status: dictationStatus,
+    isRecording,
+    partialTranscript,
+    error: dictationError,
+    start: startStreaming,
+    stop: stopStreaming,
+  } = useAssemblyAIStreaming({
+    onTranscript: insertTranscript,
+    onSessionLimit: () => {
+      dictationRange.current = null;
+      dictationInsertPosition.current = null;
+      setMessage("Recording stopped after 2 minutes.");
+    },
+  });
+
   useEffect(() => {
     slashRef.current = slashState;
   }, [slashState]);
+
+  useEffect(() => {
+    if (!dictationError) return;
+
+    setMessage(dictationError);
+  }, [dictationError]);
+
+  useEffect(() => {
+    if (!["requesting", "connecting", "recording"].includes(dictationStatus)) {
+      return;
+    }
+
+    stopStreaming();
+    dictationRange.current = null;
+    dictationInsertPosition.current = null;
+  }, [selectedNote?.id]);
 
   useEffect(() => {
     if (!selectedNote) return;
@@ -418,8 +499,9 @@ export function NotesWorkspace({
     return () => {
       if (saveTimer.current) clearTimeout(saveTimer.current);
       if (titleTimer.current) clearTimeout(titleTimer.current);
+      stopStreaming();
     };
-  }, []);
+  }, [stopStreaming]);
 
   function upsertNote(note: NoteDTO) {
     setNotes((current) => {
@@ -731,6 +813,26 @@ export function NotesWorkspace({
     });
   }
 
+  function startDictation() {
+    if (!editor || !selectedNote || selectedNote.isTrashed) return;
+
+    const hasActiveCursor = editor.view.hasFocus();
+    const { from } = editor.state.selection;
+    const docEnd = editor.state.doc.content.size;
+    const insertAt = hasActiveCursor ? from : docEnd;
+
+    dictationRange.current = null;
+    dictationInsertPosition.current = insertAt;
+    setMessage("");
+    void startStreaming();
+  }
+
+  function stopDictation() {
+    dictationRange.current = null;
+    dictationInsertPosition.current = null;
+    stopStreaming();
+  }
+
   const slashCommands = getSlashCommands().filter((command) =>
     command.label.toLowerCase().includes(slashState.query.toLowerCase())
   );
@@ -970,6 +1072,11 @@ export function NotesWorkspace({
               <Toolbar
                 editor={editor}
                 disabled={selectedNote.isTrashed}
+                isRecording={isRecording}
+                dictationStatus={dictationStatus}
+                partialTranscript={partialTranscript}
+                onStartRecording={startDictation}
+                onStopRecording={stopDictation}
                 onKeyDown={(event) => event.stopPropagation()}
               />
             </div>
@@ -1352,10 +1459,20 @@ function NoteRow({
 function Toolbar({
   editor,
   disabled,
+  isRecording,
+  dictationStatus,
+  partialTranscript,
+  onStartRecording,
+  onStopRecording,
   onKeyDown,
 }: {
   editor: Editor | null;
   disabled: boolean;
+  isRecording: boolean;
+  dictationStatus: string;
+  partialTranscript: string;
+  onStartRecording: () => void;
+  onStopRecording: () => void;
   onKeyDown: (event: ReactKeyboardEvent<HTMLDivElement>) => void;
 }) {
   if (!editor) return null;
@@ -1547,6 +1664,55 @@ function Toolbar({
       >
         <Minus className="size-4" aria-hidden="true" />
       </ToolButton>
+
+      <span className="mx-1 h-6 w-px shrink-0 bg-border/80" />
+
+      <button
+        type="button"
+        disabled={disabled || dictationStatus === "requesting"}
+        onMouseDown={(event) => {
+          event.preventDefault();
+
+          if (isRecording) {
+            onStopRecording();
+            return;
+          }
+
+          onStartRecording();
+        }}
+        title={isRecording ? "Stop Recording" : "Speak to Note"}
+        aria-label={isRecording ? "Stop Recording" : "Speak to Note"}
+        className={cn(
+          "flex h-8 shrink-0 items-center gap-2 rounded-md px-2.5 text-xs font-medium transition-colors disabled:pointer-events-none disabled:opacity-50",
+          isRecording
+            ? "bg-destructive/10 text-destructive hover:bg-destructive/15"
+            : "bg-background text-foreground shadow-sm hover:bg-card"
+        )}
+      >
+        {isRecording ? (
+          <>
+            <Mic className="size-3.5 animate-pulse" aria-hidden="true" />
+            Stop Recording
+          </>
+        ) : (
+          <>
+            <Mic className="size-3.5" aria-hidden="true" />
+            Speak to Note
+          </>
+        )}
+      </button>
+
+      {dictationStatus === "connecting" || dictationStatus === "requesting" ? (
+        <span className="shrink-0 rounded-full bg-muted px-2 py-1 text-[11px] text-muted-foreground">
+          Connecting...
+        </span>
+      ) : null}
+
+      {isRecording && partialTranscript ? (
+        <span className="max-w-56 shrink truncate rounded-full bg-primary/10 px-2 py-1 text-[11px] text-primary">
+          {partialTranscript}
+        </span>
+      ) : null}
     </div>
   );
 }
