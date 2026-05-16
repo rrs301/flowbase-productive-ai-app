@@ -84,6 +84,24 @@ export const kanbanBoardShares = pgTable(
   (table) => [uniqueIndex("kanban_board_shares_board_email_unique").on(table.boardId, table.email)],
 );
 
+export const notes = pgTable("notes", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  icon: text("icon").notNull().default("FileText"),
+  color: text("color").notNull().default("sage"),
+  content: jsonb("content").$type<Record<string, unknown>>().notNull(),
+  plainText: text("plain_text").notNull().default(""),
+  wordCount: integer("word_count").notNull().default(0),
+  isPinned: boolean("is_pinned").notNull().default(false),
+  isTrashed: boolean("is_trashed").notNull().default(false),
+  trashedAt: timestamp("trashed_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type CalendarItem = typeof calendarItems.$inferSelect;
@@ -96,3 +114,5 @@ export type KanbanTask = typeof kanbanTasks.$inferSelect;
 export type NewKanbanTask = typeof kanbanTasks.$inferInsert;
 export type KanbanBoardShare = typeof kanbanBoardShares.$inferSelect;
 export type NewKanbanBoardShare = typeof kanbanBoardShares.$inferInsert;
+export type Note = typeof notes.$inferSelect;
+export type NewNote = typeof notes.$inferInsert;
