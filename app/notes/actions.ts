@@ -9,7 +9,7 @@ import { db, notes, users } from "@/db";
 
 const noteColors = ["sage", "clay", "amber", "sky", "violet"] as const;
 const noteIcons = ["FileText", "BookOpen", "Lightbulb", "Sparkles", "PenLine"] as const;
-const GEMINI_MODEL = "gemini-2.5-flash";
+const GEMINI_MODEL = "gemini-3.1-flash-lite";
 
 export type NoteColor = (typeof noteColors)[number];
 export type NoteIcon = (typeof noteIcons)[number];

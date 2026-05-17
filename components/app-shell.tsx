@@ -50,7 +50,7 @@ const navGroups: NavGroup[] = [
       { label: "Calendar", href: "/calendar", icon: CalendarDays, color: "text-sage-600" },
       { label: "Task / Kanban", href: "/kanban", icon: Columns3, color: "text-amber-600" },
       { label: "Notes", href: "/notes", icon: FileText, color: "text-sky-600" },
-      { label: "Whiteboard", href: "#", icon: PenTool, color: "text-coral-500" },
+      { label: "Whiteboard", href: "/whiteboard", icon: PenTool, color: "text-coral-500" },
       { label: "Pages / Spaces", href: "#", icon: Users, color: "text-teal-600" },
     ],
   },
@@ -64,7 +64,7 @@ const navGroups: NavGroup[] = [
 ];
 
 type AppShellProps = {
-  activePage: "dashboard" | "calendar" | "kanban" | "notes";
+  activePage: "dashboard" | "calendar" | "kanban" | "notes" | "whiteboard";
   children: ReactNode;
 };
 
@@ -139,7 +139,8 @@ export function AppShell({ activePage, children }: AppShellProps) {
                     (activePage === "dashboard" && item.href === "/") ||
                     (activePage === "calendar" && item.href === "/calendar") ||
                     (activePage === "kanban" && item.href === "/kanban") ||
-                    (activePage === "notes" && item.href === "/notes");
+                    (activePage === "notes" && item.href === "/notes") ||
+                    (activePage === "whiteboard" && item.href === "/whiteboard");
 
                   return (
                     <Link
