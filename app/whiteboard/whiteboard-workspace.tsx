@@ -15,8 +15,8 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import type { AppState, BinaryFiles, ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
-import type { OrderedExcalidrawElement } from "@excalidraw/excalidraw/element/types";
+import type { AppState, BinaryFileData, BinaryFiles, DataURL, ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
+import type { FileId, OrderedExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 import { FormEvent, useEffect, useMemo, useRef, useState, useTransition } from "react";
 
 import {
@@ -50,9 +50,9 @@ const boardStyles: Record<WhiteboardColor, { label: string; dot: string; ring: s
   violet: { label: "Violet", dot: "bg-violet-500", ring: "ring-violet-400" },
 };
 
-const defaultStrokeColor = "#1f2937";
+const stickyNoteFileId = "flowbase-sticky-note-template" as FileId;
 const defaultTextColor = "#111827";
-const defaultStickyColor = "#fff3a3";
+let stickyNoteFilePromise: Promise<BinaryFileData> | null = null;
 
 type SaveStatus = "saved" | "saving" | "error";
 
@@ -113,6 +113,35 @@ function viewportCenter(api: ExcalidrawImperativeAPI) {
 
 function makeGroupId(prefix = "group") {
   return `${prefix}-${crypto.randomUUID()}`;
+}
+
+async function getStickyNoteFile() {
+  if (!stickyNoteFilePromise) {
+    stickyNoteFilePromise = fetch("/stickynote.png")
+      .then((response) => {
+        if (!response.ok) throw new Error("Could not load sticky note image.");
+        return response.blob();
+      })
+      .then(
+        (blob) =>
+          new Promise<BinaryFileData>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+              resolve({
+                id: stickyNoteFileId,
+                mimeType: "image/png",
+                dataURL: reader.result as DataURL,
+                created: Date.now(),
+                lastRetrieved: Date.now(),
+              });
+            };
+            reader.onerror = () => reject(new Error("Could not read sticky note image."));
+            reader.readAsDataURL(blob);
+          }),
+      );
+  }
+
+  return stickyNoteFilePromise;
 }
 
 function layoutDiagram(diagram: GeneratedDiagram, originX: number, originY: number) {
@@ -344,32 +373,40 @@ export function WhiteboardWorkspace({ initialBoards }: { initialBoards: Whiteboa
     const api = apiRef.current;
     if (!api) return;
     const { convertToExcalidrawElements } = await import("@excalidraw/excalidraw");
+    const stickyNoteFile = await getStickyNoteFile();
     const center = viewportCenter(api);
     const groupId = makeGroupId("sticky");
+    api.addFiles([stickyNoteFile]);
     const sticky = convertToExcalidrawElements(
       [
         {
-          type: "rectangle",
-          x: center.x - 110,
-          y: center.y - 70,
-          width: 220,
-          height: 140,
-          strokeColor: defaultStrokeColor,
-          backgroundColor: defaultStickyColor,
-          fillStyle: "solid",
-          roundness: { type: 3 },
+          type: "image",
+          x: center.x - 128,
+          y: center.y - 128,
+          width: 256,
+          height: 256,
+          fileId: stickyNoteFileId,
+          status: "saved",
           groupIds: [groupId],
         },
         {
-          type: "text",
-          x: center.x - 88,
-          y: center.y - 32,
-          width: 176,
-          text: "Sticky note",
-          fontSize: 20,
-          textAlign: "center",
-          strokeColor: defaultTextColor,
+          type: "rectangle",
+          x: center.x - 82,
+          y: center.y - 74,
+          width: 164,
+          height: 142,
+          strokeColor: "transparent",
           backgroundColor: "transparent",
+          fillStyle: "solid",
+          opacity: 100,
+          roundness: { type: 3 },
+          label: {
+            text: "Type here",
+            fontSize: 20,
+            textAlign: "center",
+            verticalAlign: "middle",
+            strokeColor: defaultTextColor,
+          },
           groupIds: [groupId],
         },
       ] as never,
