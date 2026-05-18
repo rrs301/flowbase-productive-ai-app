@@ -45,7 +45,7 @@ const navGroups: NavGroup[] = [
     label: "Home",
     items: [
       { label: "Dashboard", href: "/", icon: Home, color: "text-clay-600" },
-      { label: "AI Assistant", href: "#", icon: Bot, color: "text-violet-500" },
+      { label: "AI Assistant", href: "/ai-assistant", icon: Bot, color: "text-violet-500" },
     ],
   },
   {
@@ -68,7 +68,16 @@ const navGroups: NavGroup[] = [
 ];
 
 type AppShellProps = {
-  activePage: "dashboard" | "calendar" | "kanban" | "notes" | "whiteboard" | "spaces" | "ai-template-builder" | "settings";
+  activePage:
+    | "dashboard"
+    | "ai-assistant"
+    | "calendar"
+    | "kanban"
+    | "notes"
+    | "whiteboard"
+    | "spaces"
+    | "ai-template-builder"
+    | "settings";
   generatedSidebarApps?: GeneratedSidebarAppDTO[];
   children: ReactNode;
 };
@@ -148,6 +157,7 @@ export function AppShell({ activePage, generatedSidebarApps = [], children }: Ap
                   const Icon = item.icon;
                   const active =
                     (activePage === "dashboard" && item.href === "/") ||
+                    (activePage === "ai-assistant" && item.href === "/ai-assistant") ||
                     (activePage === "calendar" && item.href === "/calendar") ||
                     (activePage === "kanban" && item.href === "/kanban") ||
                     (activePage === "notes" && item.href === "/notes") ||

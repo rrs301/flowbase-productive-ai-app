@@ -29,7 +29,7 @@ export const freePlanLimits = {
   notes: 10,
   spaces: 2,
   whiteboards: 2,
-  aiActionsPerDay: 5,
+  aiActionsPerDay: 50,
 } as const;
 
 export type UserCategoryDTO = {
