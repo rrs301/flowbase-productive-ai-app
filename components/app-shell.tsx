@@ -44,7 +44,7 @@ const navGroups: NavGroup[] = [
   {
     label: "Home",
     items: [
-      { label: "Dashboard", href: "/", icon: Home, color: "text-clay-600" },
+      { label: "Dashboard", href: "/dashboard", icon: Home, color: "text-clay-600" },
       { label: "AI Assistant", href: "/ai-assistant", icon: Bot, color: "text-violet-500" },
     ],
   },
@@ -156,7 +156,7 @@ export function AppShell({ activePage, generatedSidebarApps = [], children }: Ap
                 {group.items.map((item) => {
                   const Icon = item.icon;
                   const active =
-                    (activePage === "dashboard" && item.href === "/") ||
+                    (activePage === "dashboard" && item.href === "/dashboard") ||
                     (activePage === "ai-assistant" && item.href === "/ai-assistant") ||
                     (activePage === "calendar" && item.href === "/calendar") ||
                     (activePage === "kanban" && item.href === "/kanban") ||
