@@ -13,6 +13,7 @@ import {
   LucideIcon,
   PanelLeftOpen,
   PenTool,
+  FolderKanban,
   Search,
   Settings,
   Sparkles,
@@ -51,7 +52,7 @@ const navGroups: NavGroup[] = [
       { label: "Task / Kanban", href: "/kanban", icon: Columns3, color: "text-amber-600" },
       { label: "Notes", href: "/notes", icon: FileText, color: "text-sky-600" },
       { label: "Whiteboard", href: "/whiteboard", icon: PenTool, color: "text-coral-500" },
-      { label: "Pages / Spaces", href: "#", icon: Users, color: "text-teal-600" },
+      { label: "Pages / Spaces", href: "/spaces", icon: FolderKanban, color: "text-violet-500" },
     ],
   },
   {
@@ -64,7 +65,7 @@ const navGroups: NavGroup[] = [
 ];
 
 type AppShellProps = {
-  activePage: "dashboard" | "calendar" | "kanban" | "notes" | "whiteboard";
+  activePage: "dashboard" | "calendar" | "kanban" | "notes" | "whiteboard" | "spaces";
   children: ReactNode;
 };
 
@@ -140,7 +141,8 @@ export function AppShell({ activePage, children }: AppShellProps) {
                     (activePage === "calendar" && item.href === "/calendar") ||
                     (activePage === "kanban" && item.href === "/kanban") ||
                     (activePage === "notes" && item.href === "/notes") ||
-                    (activePage === "whiteboard" && item.href === "/whiteboard");
+                    (activePage === "whiteboard" && item.href === "/whiteboard") ||
+                    (activePage === "spaces" && item.href === "/spaces");
 
                   return (
                     <Link

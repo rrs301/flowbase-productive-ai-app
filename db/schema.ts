@@ -115,6 +115,84 @@ export const whiteboards = pgTable("whiteboards", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+export const spaces = pgTable("spaces", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  description: text("description"),
+  color: text("color").notNull().default("violet"),
+  isFavorite: boolean("is_favorite").notNull().default(false),
+  isArchived: boolean("is_archived").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const spaceShares = pgTable(
+  "space_shares",
+  {
+    id: serial("id").primaryKey(),
+    spaceId: integer("space_id")
+      .notNull()
+      .references(() => spaces.id, { onDelete: "cascade" }),
+    email: text("email").notNull(),
+    role: text("role").notNull().default("editor"),
+    invitedByUserId: integer("invited_by_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    acceptedUserId: integer("accepted_user_id").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [uniqueIndex("space_shares_space_email_unique").on(table.spaceId, table.email)],
+);
+
+export const spacePages = pgTable("space_pages", {
+  id: serial("id").primaryKey(),
+  spaceId: integer("space_id")
+    .notNull()
+    .references(() => spaces.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  template: text("template").notNull().default("Blank Page"),
+  pageType: text("page_type").notNull().default("Document"),
+  description: text("description"),
+  content: jsonb("content").$type<Record<string, unknown>>().notNull(),
+  plainText: text("plain_text").notNull().default(""),
+  wordCount: integer("word_count").notNull().default(0),
+  isFavorite: boolean("is_favorite").notNull().default(false),
+  isArchived: boolean("is_archived").notNull().default(false),
+  updatedByUserId: integer("updated_by_user_id").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const pageTaskLinks = pgTable(
+  "page_task_links",
+  {
+    id: serial("id").primaryKey(),
+    pageId: integer("page_id")
+      .notNull()
+      .references(() => spacePages.id, { onDelete: "cascade" }),
+    taskId: integer("task_id")
+      .notNull()
+      .references(() => kanbanTasks.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [uniqueIndex("page_task_links_page_task_unique").on(table.pageId, table.taskId)],
+);
+
+export const pageComments = pgTable("page_comments", {
+  id: serial("id").primaryKey(),
+  pageId: integer("page_id")
+    .notNull()
+    .references(() => spacePages.id, { onDelete: "cascade" }),
+  userId: integer("user_id").references(() => users.id, { onDelete: "set null" }),
+  body: text("body").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type CalendarItem = typeof calendarItems.$inferSelect;
@@ -131,3 +209,13 @@ export type Note = typeof notes.$inferSelect;
 export type NewNote = typeof notes.$inferInsert;
 export type Whiteboard = typeof whiteboards.$inferSelect;
 export type NewWhiteboard = typeof whiteboards.$inferInsert;
+export type Space = typeof spaces.$inferSelect;
+export type NewSpace = typeof spaces.$inferInsert;
+export type SpaceShare = typeof spaceShares.$inferSelect;
+export type NewSpaceShare = typeof spaceShares.$inferInsert;
+export type SpacePage = typeof spacePages.$inferSelect;
+export type NewSpacePage = typeof spacePages.$inferInsert;
+export type PageTaskLink = typeof pageTaskLinks.$inferSelect;
+export type NewPageTaskLink = typeof pageTaskLinks.$inferInsert;
+export type PageComment = typeof pageComments.$inferSelect;
+export type NewPageComment = typeof pageComments.$inferInsert;
