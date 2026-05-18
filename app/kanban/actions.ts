@@ -5,6 +5,7 @@ import { and, asc, eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 import { calendarItems, db, kanbanBoardShares, kanbanBoards, kanbanColumns, kanbanTasks, users } from "@/db";
+import { assertFreePlanLimit } from "@/lib/user-preferences";
 import {
   createLiveblocksClient,
   getAvatarColor,
@@ -36,6 +37,7 @@ export type KanbanTaskDTO = {
   description: string | null;
   dueDate: string;
   priority: TaskPriority;
+  category: string | null;
   labels: KanbanLabelDTO[];
   syncCalendar: boolean;
   linkNotes: boolean;
@@ -91,6 +93,7 @@ export type TaskInput = {
   description?: string;
   dueDate: string;
   priority: string;
+  category?: string | null;
   labels: KanbanLabelDTO[];
   syncCalendar: boolean;
   linkNotes: boolean;
@@ -123,6 +126,10 @@ function normalizeLabels(labels: { name: string; color: string }[]) {
     .map((label) => ({ name: label.name.trim(), color: normalizeLabelColor(label.color) }))
     .filter((label) => label.name)
     .slice(0, 5);
+}
+
+function normalizeCategory(value?: string | null) {
+  return cleanOptionalText(value)?.slice(0, 36) ?? null;
 }
 
 function todayKey() {
@@ -159,6 +166,7 @@ function toTaskDTO(task: typeof kanbanTasks.$inferSelect): KanbanTaskDTO {
     description: task.description,
     dueDate: task.dueDate,
     priority: normalizePriority(task.priority),
+    category: normalizeCategory(task.category),
     labels: normalizeLabels(task.labels),
     syncCalendar: task.syncCalendar,
     linkNotes: task.linkNotes,
@@ -471,6 +479,7 @@ export async function listKanbanBoards() {
 }
 
 export async function createKanbanBoard(input: BoardInput) {
+  await assertFreePlanLimit("boards");
   const user = await getCurrentDatabaseUser();
   const name = input.name.trim();
 
@@ -621,6 +630,7 @@ export async function deleteKanbanColumn(columnId: number) {
 }
 
 export async function createKanbanTask(input: TaskInput) {
+  await assertFreePlanLimit("tasks");
   const user = await getCurrentDatabaseUser();
   const { column, board } = await assertColumnAccess(input.columnId, user);
   const title = input.title.trim();
@@ -643,6 +653,7 @@ export async function createKanbanTask(input: TaskInput) {
     description: cleanOptionalText(input.description),
     dueDate,
     priority: normalizePriority(input.priority),
+    category: normalizeCategory(input.category),
     labels: normalizeLabels(input.labels),
     syncCalendar: input.syncCalendar,
     linkNotes: input.linkNotes,
@@ -684,6 +695,7 @@ export async function updateKanbanTask(taskId: number, input: TaskInput) {
       description: cleanOptionalText(input.description),
       dueDate,
       priority: normalizePriority(input.priority),
+      category: normalizeCategory(input.category),
       labels: normalizeLabels(input.labels),
       syncCalendar: input.syncCalendar,
       linkNotes: input.linkNotes,

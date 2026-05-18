@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { listSidebarGeneratedApps } from "@/app/ai-template-builder/actions";
 import { listNotes } from "@/app/notes/actions";
 import { NotesWorkspace } from "@/app/notes/notes-workspace";
+import { listCategoriesForScopes } from "@/app/settings/actions";
 import { AppShell } from "@/components/app-shell";
 import { syncCurrentUserToDatabase } from "@/lib/sync-user";
 
@@ -15,7 +16,11 @@ export default async function NotesPage() {
   }
 
   await syncCurrentUserToDatabase();
-  const [notes, sidebarApps] = await Promise.all([listNotes(), listSidebarGeneratedApps()]);
+  const [notes, sidebarApps, categories] = await Promise.all([
+    listNotes(),
+    listSidebarGeneratedApps(),
+    listCategoriesForScopes(["note"]),
+  ]);
 
   return (
     <AppShell activePage="notes" generatedSidebarApps={sidebarApps}>
@@ -34,7 +39,7 @@ export default async function NotesPage() {
           </div>
         </header>
 
-        <NotesWorkspace initialNotes={notes} />
+        <NotesWorkspace initialNotes={notes} categories={categories} />
       </section>
     </AppShell>
   );

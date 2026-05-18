@@ -56,6 +56,7 @@ export const kanbanTasks = pgTable("kanban_tasks", {
   description: text("description"),
   dueDate: text("due_date").notNull(),
   priority: text("priority").notNull().default("medium"),
+  category: text("category"),
   labels: jsonb("labels").$type<{ name: string; color: string }[]>().notNull().default([]),
   syncCalendar: boolean("sync_calendar").notNull().default(false),
   linkNotes: boolean("link_notes").notNull().default(false),
@@ -92,6 +93,7 @@ export const notes = pgTable("notes", {
   title: text("title").notNull(),
   icon: text("icon").notNull().default("FileText"),
   color: text("color").notNull().default("sage"),
+  category: text("category"),
   content: jsonb("content").$type<Record<string, unknown>>().notNull(),
   plainText: text("plain_text").notNull().default(""),
   wordCount: integer("word_count").notNull().default(0),
@@ -210,6 +212,62 @@ export const pageComments = pgTable("page_comments", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+export const userSettings = pgTable("user_settings", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" })
+    .unique(),
+  theme: text("theme").notNull().default("system"),
+  notificationsEnabled: boolean("notifications_enabled").notNull().default(true),
+  emailNotificationsEnabled: boolean("email_notifications_enabled").notNull().default(false),
+  defaultCalendarView: text("default_calendar_view").notNull().default("month"),
+  defaultTaskPriority: text("default_task_priority").notNull().default("medium"),
+  autoSaveEnabled: boolean("auto_save_enabled").notNull().default(true),
+  privacyModeEnabled: boolean("privacy_mode_enabled").notNull().default(false),
+  twoFactorReminderDismissed: boolean("two_factor_reminder_dismissed").notNull().default(false),
+  aiModel: text("ai_model").notNull().default("gemini-3.1-flash-lite"),
+  aiBehavior: text("ai_behavior").notNull().default("balanced"),
+  aiTone: text("ai_tone").notNull().default("Friendly"),
+  aiRefineEnabled: boolean("ai_refine_enabled").notNull().default(true),
+  aiAssistantEnabled: boolean("ai_assistant_enabled").notNull().default(true),
+  aiTemplateBuilderEnabled: boolean("ai_template_builder_enabled").notNull().default(true),
+  aiDiagramEnabled: boolean("ai_diagram_enabled").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const userCategories = pgTable(
+  "user_categories",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    scope: text("scope").notNull(),
+    name: text("name").notNull(),
+    color: text("color").notNull().default("#5BAE91"),
+    icon: text("icon").notNull().default("Tag"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [uniqueIndex("user_categories_user_scope_name_unique").on(table.userId, table.scope, table.name)],
+);
+
+export const userAiUsage = pgTable(
+  "user_ai_usage",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    usageDate: text("usage_date").notNull(),
+    actionCount: integer("action_count").notNull().default(0),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [uniqueIndex("user_ai_usage_user_date_unique").on(table.userId, table.usageDate)],
+);
+
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type CalendarItem = typeof calendarItems.$inferSelect;
@@ -238,3 +296,9 @@ export type PageTaskLink = typeof pageTaskLinks.$inferSelect;
 export type NewPageTaskLink = typeof pageTaskLinks.$inferInsert;
 export type PageComment = typeof pageComments.$inferSelect;
 export type NewPageComment = typeof pageComments.$inferInsert;
+export type UserSettings = typeof userSettings.$inferSelect;
+export type NewUserSettings = typeof userSettings.$inferInsert;
+export type UserCategory = typeof userCategories.$inferSelect;
+export type NewUserCategory = typeof userCategories.$inferInsert;
+export type UserAiUsage = typeof userAiUsage.$inferSelect;
+export type NewUserAiUsage = typeof userAiUsage.$inferInsert;

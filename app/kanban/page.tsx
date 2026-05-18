@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { listSidebarGeneratedApps } from "@/app/ai-template-builder/actions";
 import { listKanbanBoards } from "@/app/kanban/actions";
 import { KanbanWorkspace } from "@/app/kanban/kanban-workspace";
+import { listCategoriesForScopes } from "@/app/settings/actions";
 import { AppShell } from "@/components/app-shell";
 import { syncCurrentUserToDatabase } from "@/lib/sync-user";
 
@@ -15,7 +16,11 @@ export default async function KanbanPage() {
   }
 
   await syncCurrentUserToDatabase();
-  const [boards, sidebarApps] = await Promise.all([listKanbanBoards(), listSidebarGeneratedApps()]);
+  const [boards, sidebarApps, categories] = await Promise.all([
+    listKanbanBoards(),
+    listSidebarGeneratedApps(),
+    listCategoriesForScopes(["task"]),
+  ]);
 
   return (
     <AppShell activePage="kanban" generatedSidebarApps={sidebarApps}>
@@ -32,7 +37,7 @@ export default async function KanbanPage() {
           </div>
         </header>
 
-        <KanbanWorkspace initialBoards={boards} />
+        <KanbanWorkspace initialBoards={boards} categories={categories} />
       </section>
     </AppShell>
   );

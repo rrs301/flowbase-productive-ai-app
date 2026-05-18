@@ -62,13 +62,13 @@ const navGroups: NavGroup[] = [
     label: "Build",
     items: [
       { label: "AI Template Builder", href: "/ai-template-builder", icon: LayoutTemplate, color: "text-rose-500" },
-      { label: "Settings", href: "#", icon: Settings, color: "text-stone-500" },
+      { label: "Settings", href: "/settings", icon: Settings, color: "text-stone-500" },
     ],
   },
 ];
 
 type AppShellProps = {
-  activePage: "dashboard" | "calendar" | "kanban" | "notes" | "whiteboard" | "spaces" | "ai-template-builder";
+  activePage: "dashboard" | "calendar" | "kanban" | "notes" | "whiteboard" | "spaces" | "ai-template-builder" | "settings";
   generatedSidebarApps?: GeneratedSidebarAppDTO[];
   children: ReactNode;
 };
@@ -153,7 +153,8 @@ export function AppShell({ activePage, generatedSidebarApps = [], children }: Ap
                     (activePage === "notes" && item.href === "/notes") ||
                     (activePage === "whiteboard" && item.href === "/whiteboard") ||
                     (activePage === "spaces" && item.href === "/spaces") ||
-                    (activePage === "ai-template-builder" && item.href === "/ai-template-builder");
+                    (activePage === "ai-template-builder" && item.href === "/ai-template-builder") ||
+                    (activePage === "settings" && item.href === "/settings");
 
                   return (
                     <Link

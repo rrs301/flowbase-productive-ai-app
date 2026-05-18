@@ -43,6 +43,7 @@ import {
 } from "@/app/kanban/actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import type { UserCategoryDTO } from "@/lib/user-preferences";
 import { getBoardRoomId } from "@/lib/liveblocks-room";
 import { cn } from "@/lib/utils";
 
@@ -57,6 +58,7 @@ type TaskForm = {
   description: string;
   dueDate: string;
   priority: TaskPriority;
+  category: string;
   labelName: string;
   labelColor: KanbanLabelDTO["color"];
   labels: KanbanLabelDTO[];
@@ -99,6 +101,7 @@ function emptyTaskForm(columnId = 0): TaskForm {
     description: "",
     dueDate: todayKey(),
     priority: "medium",
+    category: "",
     labelName: "",
     labelColor: "sage",
     labels: [],
@@ -107,7 +110,7 @@ function emptyTaskForm(columnId = 0): TaskForm {
   };
 }
 
-export function KanbanWorkspace({ initialBoards }: { initialBoards: KanbanBoardDTO[] }) {
+export function KanbanWorkspace({ initialBoards, categories }: { initialBoards: KanbanBoardDTO[]; categories: UserCategoryDTO[] }) {
   const [boards, setBoards] = useState(initialBoards);
   const [selectedBoardId, setSelectedBoardId] = useState(initialBoards[0]?.id ?? null);
   const [boardDialogOpen, setBoardDialogOpen] = useState(false);
@@ -231,6 +234,7 @@ export function KanbanWorkspace({ initialBoards }: { initialBoards: KanbanBoardD
       description: task.description || "",
       dueDate: task.dueDate || todayKey(),
       priority: task.priority,
+      category: task.category || "",
       labelName: "",
       labelColor: "sage",
       labels: task.labels,
@@ -249,6 +253,7 @@ export function KanbanWorkspace({ initialBoards }: { initialBoards: KanbanBoardD
       description: taskForm.description,
       dueDate: taskForm.dueDate,
       priority: taskForm.priority,
+      category: taskForm.category,
       labels: taskForm.labels,
       syncCalendar: taskForm.syncCalendar,
       linkNotes: taskForm.linkNotes,
@@ -582,6 +587,21 @@ export function KanbanWorkspace({ initialBoards }: { initialBoards: KanbanBoardD
                 ))}
               </div>
             </div>
+            <label className="block text-sm font-medium">
+              Category
+              <select
+                value={taskForm.category}
+                onChange={(event) => setTaskForm((current) => ({ ...current, category: event.target.value }))}
+                className="mt-2 h-10 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none focus:ring-1 focus:ring-ring"
+              >
+                <option value="">No category</option>
+                {categories.map((category) => (
+                  <option key={category.id} value={category.name}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
+            </label>
             <div>
               <p className="text-sm font-medium">Labels</p>
               <div className="mt-2 space-y-2">
@@ -782,6 +802,11 @@ function TaskCard({
       <div className="mt-3 flex flex-wrap gap-1.5">
         <span className={cn("rounded-md border px-2 py-0.5 text-[11px] font-semibold capitalize", priorityStyles[task.priority])}>{task.priority}</span>
         <span className="rounded-md bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">{task.dueDate}</span>
+        {task.category && (
+          <span className="rounded-md border border-primary/20 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
+            {task.category}
+          </span>
+        )}
         {task.labels.map((label, index) => (
           <span key={`${label.name}-${index}`} className={cn("rounded-md border px-2 py-0.5 text-[11px] font-medium", labelStyles[label.color])}>
             {label.name}

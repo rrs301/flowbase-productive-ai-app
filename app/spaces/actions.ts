@@ -18,6 +18,7 @@ import {
   users,
 } from "@/db";
 import { getAvatarColor, getInitials, getLiveblocksUserId, normalizeCollaborationEmail } from "@/lib/liveblocks";
+import { assertAiFeatureEnabled, assertFreePlanLimit, recordAiAction } from "@/lib/user-preferences";
 
 const spaceColors = ["violet", "sky", "sage", "amber", "clay", "rose"] as const;
 const pageTemplates = ["Blank Page", "Project Plan", "Meeting Notes", "PRD", "Research Notes", "Task Plan"] as const;
@@ -389,6 +390,7 @@ export async function listSpacesData() {
 }
 
 export async function createSpace(input: SpaceInput) {
+  await assertFreePlanLimit("spaces");
   const user = await getCurrentDatabaseUser();
   const name = cleanTitle(input.name, "Untitled Space");
 
@@ -632,6 +634,8 @@ function getRefineInstruction(action: RefineAction, tone?: RefineTone) {
 }
 
 export async function refineSelectedPageText(input: { text: string; action: RefineAction; tone?: RefineTone }) {
+  await assertAiFeatureEnabled("aiRefineEnabled");
+  await recordAiAction();
   await getCurrentDatabaseUser();
   const selectedText = input.text.trim();
 
