@@ -5,12 +5,12 @@ import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 import { calendarItems, db, users } from "@/db";
+import { assertFreePlanLimit } from "@/lib/user-preferences";
 
 const itemTypes = ["task", "reminder"] as const;
-const categories = ["work", "personal", "focus", "meeting", "reminder"] as const;
 
 export type CalendarItemType = (typeof itemTypes)[number];
-export type CalendarCategory = (typeof categories)[number];
+export type CalendarCategory = string;
 
 export type CalendarItemDTO = {
   id: number;
@@ -39,7 +39,7 @@ function normalizeType(value: string): CalendarItemType {
 }
 
 function normalizeCategory(value: string): CalendarCategory {
-  return categories.includes(value as CalendarCategory) ? (value as CalendarCategory) : "work";
+  return value.trim().replace(/\s+/g, " ").slice(0, 36) || "Work";
 }
 
 function cleanOptionalText(value?: string | null) {
@@ -95,6 +95,7 @@ export async function listCalendarItems() {
 }
 
 export async function createCalendarItem(input: CalendarItemInput, asDraft = false) {
+  await assertFreePlanLimit("tasks");
   const userId = await getCurrentDatabaseUserId();
   const title = input.title.trim();
 

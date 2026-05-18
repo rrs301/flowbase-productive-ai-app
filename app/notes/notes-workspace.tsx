@@ -62,6 +62,7 @@ import {
   updateNoteTitle,
 } from "@/app/notes/actions";
 import { Button } from "@/components/ui/button";
+import type { UserCategoryDTO } from "@/lib/user-preferences";
 import { cn } from "@/lib/utils";
 import { useAssemblyAIStreaming } from "./use-assemblyai-streaming";
 
@@ -202,8 +203,10 @@ function extractPlainText(json: JSONContent) {
 
 export function NotesWorkspace({
   initialNotes,
+  categories,
 }: {
   initialNotes: NoteDTO[];
+  categories: UserCategoryDTO[];
 }) {
   const [notes, setNotes] = useState(initialNotes);
 
@@ -585,6 +588,7 @@ export function NotesWorkspace({
     input: {
       color?: NoteColor;
       icon?: NoteIcon;
+      category?: string | null;
       isPinned?: boolean;
     }
   ) {
@@ -920,8 +924,10 @@ export function NotesWorkspace({
                   }
                   onColor={(color) => updateMetadata(note.id, { color })}
                   onIcon={(icon) => updateMetadata(note.id, { icon })}
+                  onCategory={(category) => updateMetadata(note.id, { category })}
                   onDuplicate={() => duplicateSelected(note.id)}
                   onTrash={() => moveToTrash(note.id)}
+                  categories={categories}
                 />
               ))}
             </div>
@@ -1060,6 +1066,12 @@ export function NotesWorkspace({
                       selectedNote.wordCount}{" "}
                     words
                   </span>
+
+                  {selectedNote.category && (
+                    <span className="rounded-full bg-primary/10 px-2.5 py-1 text-primary">
+                      {selectedNote.category}
+                    </span>
+                  )}
 
                   {selectedNote.isTrashed && (
                     <span className="rounded-full bg-destructive/10 px-2.5 py-1 text-destructive">
@@ -1291,8 +1303,10 @@ function NoteRow({
   onPin,
   onColor,
   onIcon,
+  onCategory,
   onDuplicate,
   onTrash,
+  categories,
 }: {
   note: NoteDTO;
   selected: boolean;
@@ -1302,8 +1316,10 @@ function NoteRow({
   onPin: () => void;
   onColor: (color: NoteColor) => void;
   onIcon: (icon: NoteIcon) => void;
+  onCategory: (category: string | null) => void;
   onDuplicate: () => void;
   onTrash: () => void;
+  categories: UserCategoryDTO[];
 }) {
   const Icon = iconMap[note.icon];
 
@@ -1344,6 +1360,11 @@ function NoteRow({
             <span className={cn("rounded-full px-1.5 py-0.5", colorStyles[note.color].chip)}>
               {colorStyles[note.color].label}
             </span>
+            {note.category && (
+              <span className="max-w-24 truncate rounded-full bg-primary/10 px-1.5 py-0.5 text-primary">
+                {note.category}
+              </span>
+            )}
             <span className="truncate">{formatUpdatedAt(note.updatedAt)}</span>
           </span>
         </span>
@@ -1440,6 +1461,22 @@ function NoteRow({
               );
             })}
           </div>
+
+          <p className="px-1 pb-1 pt-3 text-[11px] font-medium uppercase text-muted-foreground">
+            Category
+          </p>
+          <select
+            value={note.category || ""}
+            onChange={(event) => onCategory(event.target.value || null)}
+            className="h-9 w-full rounded-lg border border-border bg-card px-2 text-xs outline-none"
+          >
+            <option value="">No category</option>
+            {categories.map((category) => (
+              <option key={category.id} value={category.name}>
+                {category.name}
+              </option>
+            ))}
+          </select>
 
           <div className="mt-2 border-t border-border/70 pt-2">
             <MenuButton icon={Copy} label="Duplicate" onClick={onDuplicate} />

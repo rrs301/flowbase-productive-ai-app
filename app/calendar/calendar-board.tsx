@@ -14,6 +14,7 @@ import {
 } from "@/app/calendar/actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import type { UserCategoryDTO } from "@/lib/user-preferences";
 import { cn } from "@/lib/utils";
 
 type CalendarView = "month" | "week";
@@ -26,14 +27,14 @@ type DraftForm = {
 };
 
 const weekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const categories: Record<CalendarCategory, { label: string; chip: string; dot: string; border: string }> = {
-  work: { label: "Work", chip: "border-sage-200 bg-sage-100 text-sage-800", dot: "bg-sage-600", border: "border-l-sage-400" },
-  personal: { label: "Personal", chip: "border-clay-200 bg-clay-100 text-clay-800", dot: "bg-clay-600", border: "border-l-clay-400" },
-  focus: { label: "Focus", chip: "border-sky-200 bg-sky-100 text-sky-800", dot: "bg-sky-600", border: "border-l-sky-400" },
-  meeting: { label: "Meeting", chip: "border-amber-200 bg-amber-100 text-amber-800", dot: "bg-amber-600", border: "border-l-amber-400" },
-  reminder: { label: "Reminder", chip: "border-violet-200 bg-violet-100 text-violet-800", dot: "bg-violet-600", border: "border-l-violet-400" },
-};
-const emptyForm: DraftForm = { title: "", description: "", scheduledTime: "", itemType: "task", category: "work" };
+const fallbackCategories: UserCategoryDTO[] = [
+  { id: -1, scope: "calendar", name: "Work", color: "#5BAE91", icon: "BriefcaseBusiness", createdAt: "", updatedAt: "" },
+  { id: -2, scope: "calendar", name: "Personal", color: "#EF806F", icon: "Heart", createdAt: "", updatedAt: "" },
+  { id: -3, scope: "calendar", name: "Focus", color: "#4BA3C7", icon: "Focus", createdAt: "", updatedAt: "" },
+  { id: -4, scope: "calendar", name: "Meeting", color: "#E6A23C", icon: "Users", createdAt: "", updatedAt: "" },
+  { id: -5, scope: "reminder", name: "Reminder", color: "#8B7CF6", icon: "Bell", createdAt: "", updatedAt: "" },
+];
+const emptyForm: DraftForm = { title: "", description: "", scheduledTime: "", itemType: "task", category: "Work" };
 
 function dateKey(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
@@ -88,8 +89,17 @@ function sortItems(items: CalendarItemDTO[]) {
   });
 }
 
-export function CalendarBoard({ initialItems }: { initialItems: CalendarItemDTO[] }) {
+export function CalendarBoard({ initialItems, categories }: { initialItems: CalendarItemDTO[]; categories: UserCategoryDTO[] }) {
   const today = useMemo(() => new Date(), []);
+  const categoryOptions = useMemo(() => {
+    const seen = new Set<string>();
+    return [...categories, ...fallbackCategories].filter((category) => {
+      const key = `${category.scope}:${category.name.toLowerCase()}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [categories]);
   const [items, setItems] = useState(initialItems);
   const [view, setView] = useState<CalendarView>("month");
   const [anchorDate, setAnchorDate] = useState(today);
@@ -290,6 +300,7 @@ export function CalendarBoard({ initialItems }: { initialItems: CalendarItemDTO[
                       <TaskChip
                         key={item.id}
                         item={item}
+                        categories={categoryOptions}
                         setDraggingId={setDraggingId}
                         onOpenEdit={() => openEditDialog(item)}
                       />
@@ -321,7 +332,7 @@ export function CalendarBoard({ initialItems }: { initialItems: CalendarItemDTO[
               <p className="mt-1 text-xs leading-5 text-muted-foreground">Save unscheduled tasks here, then drag them onto a date.</p>
             </div>
           ) : (
-            draftItems.map((item) => <DraftTask key={item.id} item={item} setDraggingId={setDraggingId} />)
+            draftItems.map((item) => <DraftTask key={item.id} item={item} categories={categoryOptions} setDraggingId={setDraggingId} />)
           )}
         </CardContent>
       </Card>
@@ -381,7 +392,11 @@ export function CalendarBoard({ initialItems }: { initialItems: CalendarItemDTO[
                   Type
                   <select
                     value={form.itemType}
-                    onChange={(event) => setForm((current) => ({ ...current, itemType: event.target.value as CalendarItemType }))}
+                    onChange={(event) => {
+                      const itemType = event.target.value as CalendarItemType;
+                      const nextCategory = categoryOptions.find((category) => category.scope === (itemType === "reminder" ? "reminder" : "calendar"));
+                      setForm((current) => ({ ...current, itemType, category: nextCategory?.name || current.category }));
+                    }}
                     className="mt-2 h-10 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none focus:ring-1 focus:ring-ring"
                   >
                     <option value="task">Task</option>
@@ -391,22 +406,24 @@ export function CalendarBoard({ initialItems }: { initialItems: CalendarItemDTO[
               </div>
               <div>
                 <p className="text-sm font-medium">Category</p>
-                <div className="mt-2 grid gap-2 sm:grid-cols-5">
-                  {(Object.keys(categories) as CalendarCategory[]).map((category) => (
-                    <button
-                      key={category}
-                      type="button"
-                      onClick={() => setForm((current) => ({ ...current, category }))}
-                      className={cn(
-                        "flex h-10 items-center justify-center gap-2 rounded-lg border px-2 text-xs font-medium transition-colors",
-                        categories[category].chip,
-                        form.category === category ? "ring-1 ring-ring" : "opacity-80 hover:opacity-100",
-                      )}
-                    >
-                      <span className={cn("size-2 rounded-full", categories[category].dot)} aria-hidden="true" />
-                      {categories[category].label}
-                    </button>
-                  ))}
+                <div className="mt-2 grid gap-2 sm:grid-cols-3">
+                  {categoryOptions
+                    .filter((category) => (form.itemType === "reminder" ? category.scope === "reminder" : category.scope === "calendar"))
+                    .map((category) => (
+                      <button
+                        key={`${category.scope}-${category.name}`}
+                        type="button"
+                        onClick={() => setForm((current) => ({ ...current, category: category.name }))}
+                        className={cn(
+                          "flex h-10 min-w-0 items-center justify-center gap-2 rounded-lg border px-2 text-xs font-medium transition-colors",
+                          form.category === category.name ? "ring-1 ring-ring" : "opacity-80 hover:opacity-100",
+                        )}
+                        style={{ borderColor: `${category.color}55`, color: category.color }}
+                      >
+                        <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: category.color }} aria-hidden="true" />
+                        <span className="truncate">{category.name}</span>
+                      </button>
+                    ))}
                 </div>
               </div>
               {error && <p className="rounded-lg bg-clay-100 px-3 py-2 text-sm text-clay-800">{error}</p>}
@@ -430,14 +447,16 @@ export function CalendarBoard({ initialItems }: { initialItems: CalendarItemDTO[
 
 function TaskChip({
   item,
+  categories,
   setDraggingId,
   onOpenEdit,
 }: {
   item: CalendarItemDTO;
+  categories: UserCategoryDTO[];
   setDraggingId: (id: number | null) => void;
   onOpenEdit: () => void;
 }) {
-  const style = categories[item.category];
+  const style = categoryStyle(item.category, categories);
   return (
     <div
       draggable
@@ -450,7 +469,8 @@ function TaskChip({
         event.stopPropagation();
         onOpenEdit();
       }}
-      className={cn("min-w-0 cursor-grab rounded-md border border-l-4 bg-background px-2 py-1.5 text-xs shadow-sm active:cursor-grabbing", style.border)}
+      className="min-w-0 cursor-grab rounded-md border border-l-4 bg-background px-2 py-1.5 text-xs shadow-sm active:cursor-grabbing"
+      style={{ borderLeftColor: style.color }}
     >
       <div className="flex min-w-0 items-center gap-1.5">
         {item.itemType === "reminder" ? <Bell className="size-3 shrink-0 text-primary" /> : <GripVertical className="size-3 shrink-0 text-muted-foreground" />}
@@ -468,12 +488,14 @@ function TaskChip({
 
 function DraftTask({
   item,
+  categories,
   setDraggingId,
 }: {
   item: CalendarItemDTO;
+  categories: UserCategoryDTO[];
   setDraggingId: (id: number | null) => void;
 }) {
-  const style = categories[item.category];
+  const style = categoryStyle(item.category, categories);
   return (
     <div
       draggable
@@ -482,7 +504,8 @@ function DraftTask({
         setDraggingId(item.id);
       }}
       onDragEnd={() => setDraggingId(null)}
-      className={cn("cursor-grab rounded-lg border border-l-4 bg-background p-3 shadow-sm active:cursor-grabbing", style.border)}
+      className="cursor-grab rounded-lg border border-l-4 bg-background p-3 shadow-sm active:cursor-grabbing"
+      style={{ borderLeftColor: style.color }}
     >
       <div className="flex items-start gap-2">
         <GripVertical className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
@@ -490,11 +513,21 @@ function DraftTask({
           <p className="truncate text-sm font-medium">{item.title}</p>
           {item.description && <p className="mt-1 max-h-10 overflow-hidden text-xs leading-5 text-muted-foreground">{item.description}</p>}
           <div className="mt-2 flex flex-wrap gap-1.5">
-            <span className={cn("rounded-md border px-2 py-0.5 text-[11px] font-medium", style.chip)}>{style.label}</span>
+            <span className="rounded-md border px-2 py-0.5 text-[11px] font-medium" style={{ borderColor: `${style.color}55`, color: style.color }}>
+              {style.label}
+            </span>
             <span className="rounded-md bg-muted px-2 py-0.5 text-[11px] font-medium capitalize text-muted-foreground">{item.itemType}</span>
           </div>
         </div>
       </div>
     </div>
   );
+}
+
+function categoryStyle(name: string, categories: UserCategoryDTO[]) {
+  const category = categories.find((item) => item.name.toLowerCase() === name.toLowerCase());
+  return {
+    label: category?.name || name || "Work",
+    color: category?.color || "#5BAE91",
+  };
 }

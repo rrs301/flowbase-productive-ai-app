@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { listSidebarGeneratedApps } from "@/app/ai-template-builder/actions";
 import { listCalendarItems } from "@/app/calendar/actions";
 import { CalendarBoard } from "@/app/calendar/calendar-board";
+import { listCategoriesForScopes } from "@/app/settings/actions";
 import { AppShell } from "@/components/app-shell";
 import { syncCurrentUserToDatabase } from "@/lib/sync-user";
 
@@ -15,7 +16,11 @@ export default async function CalendarPage() {
   }
 
   await syncCurrentUserToDatabase();
-  const [items, sidebarApps] = await Promise.all([listCalendarItems(), listSidebarGeneratedApps()]);
+  const [items, sidebarApps, categories] = await Promise.all([
+    listCalendarItems(),
+    listSidebarGeneratedApps(),
+    listCategoriesForScopes(["calendar", "reminder"]),
+  ]);
 
   return (
     <AppShell activePage="calendar" generatedSidebarApps={sidebarApps}>
@@ -35,7 +40,7 @@ export default async function CalendarPage() {
           </div>
         </header>
 
-        <CalendarBoard initialItems={items} />
+        <CalendarBoard initialItems={items} categories={categories} />
       </section>
     </AppShell>
   );

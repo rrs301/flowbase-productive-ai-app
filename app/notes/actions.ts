@@ -6,6 +6,7 @@ import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 import { db, notes, users } from "@/db";
+import { assertAiFeatureEnabled, assertFreePlanLimit, recordAiAction } from "@/lib/user-preferences";
 
 const noteColors = ["sage", "clay", "amber", "sky", "violet"] as const;
 const noteIcons = ["FileText", "BookOpen", "Lightbulb", "Sparkles", "PenLine"] as const;
@@ -22,6 +23,7 @@ export type NoteDTO = {
   title: string;
   icon: NoteIcon;
   color: NoteColor;
+  category: string | null;
   content: NoteContent;
   plainText: string;
   wordCount: number;
@@ -41,6 +43,7 @@ export type NoteContentInput = {
 export type NoteMetadataInput = {
   color?: string;
   icon?: string;
+  category?: string | null;
   isPinned?: boolean;
 };
 
@@ -66,6 +69,10 @@ function cleanPlainText(value: string) {
   return value.trim().slice(0, 20000);
 }
 
+function normalizeCategory(value?: string | null) {
+  return value?.trim().replace(/\s+/g, " ").slice(0, 36) || null;
+}
+
 function countWords(value: string) {
   const words = value.trim().match(/\S+/g);
   return words?.length ?? 0;
@@ -77,6 +84,7 @@ function toDTO(note: typeof notes.$inferSelect): NoteDTO {
     title: note.title,
     icon: normalizeIcon(note.icon),
     color: normalizeColor(note.color),
+    category: normalizeCategory(note.category),
     content: note.content,
     plainText: note.plainText,
     wordCount: note.wordCount,
@@ -139,6 +147,7 @@ export async function listNotes() {
 }
 
 export async function createNote() {
+  await assertFreePlanLimit("notes");
   const userId = await getCurrentDatabaseUserId();
   const now = new Date();
   const [note] = await db
@@ -180,6 +189,7 @@ export async function updateNoteMetadata(noteId: number, input: NoteMetadataInpu
     .set({
       color: input.color ? normalizeColor(input.color) : note.color,
       icon: input.icon ? normalizeIcon(input.icon) : note.icon,
+      category: typeof input.category !== "undefined" ? normalizeCategory(input.category) : note.category,
       isPinned: typeof input.isPinned === "boolean" ? input.isPinned : note.isPinned,
       updatedAt: new Date(),
     })
@@ -215,6 +225,7 @@ export async function updateNoteContent(noteId: number, input: NoteContentInput)
 }
 
 export async function duplicateNote(noteId: number) {
+  await assertFreePlanLimit("notes");
   const userId = await getCurrentDatabaseUserId();
   const source = await assertNoteAccess(noteId, userId);
   const now = new Date();
@@ -226,6 +237,7 @@ export async function duplicateNote(noteId: number) {
       title: `${source.title} copy`,
       icon: source.icon,
       color: source.color,
+      category: source.category,
       content: source.content,
       plainText: source.plainText,
       wordCount: source.wordCount,
@@ -287,6 +299,8 @@ function getRefineInstruction(action: RefineAction, tone?: RefineTone) {
 }
 
 export async function refineSelectedText(input: { text: string; action: RefineAction; tone?: RefineTone }) {
+  await assertAiFeatureEnabled("aiRefineEnabled");
+  await recordAiAction();
   await getCurrentDatabaseUserId();
   const selectedText = input.text.trim();
 

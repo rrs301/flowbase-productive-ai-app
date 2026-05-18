@@ -6,6 +6,7 @@ import { and, desc, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 import { db, generatedApps, users } from "@/db";
+import { assertAiFeatureEnabled, isCurrentUserPro, recordAiAction } from "@/lib/user-preferences";
 
 const GEMINI_MODEL = "gemini-3.1-flash-lite";
 const SIDEBAR_LIMIT = 3;
@@ -383,6 +384,11 @@ export async function getGeneratedApp(appId: number) {
 }
 
 export async function generateGeneratedApp(prompt: string) {
+  if (!(await isCurrentUserPro())) {
+    throw new Error("AI Template Builder is available on the Pro plan.");
+  }
+  await assertAiFeatureEnabled("aiTemplateBuilderEnabled");
+  await recordAiAction();
   const userId = await getCurrentDatabaseUserId();
   const cleanPrompt = prompt.trim().slice(0, 2000);
   if (!cleanPrompt) {
