@@ -17,11 +17,14 @@ import {
   Search,
   Settings,
   Sparkles,
-  Users,
+  X,
 } from "lucide-react";
 import { ReactNode, useState } from "react";
 
+import { toggleGeneratedAppSidebar } from "@/app/ai-template-builder/actions";
+import type { GeneratedSidebarAppDTO } from "@/app/ai-template-builder/actions";
 import { Button } from "@/components/ui/button";
+import { getGeneratedAppIcon } from "@/lib/generated-app-icons";
 import { cn } from "@/lib/utils";
 import { UserButton } from "@clerk/nextjs";
 
@@ -58,26 +61,33 @@ const navGroups: NavGroup[] = [
   {
     label: "Build",
     items: [
-      { label: "AI Template Builder", href: "#", icon: LayoutTemplate, color: "text-rose-500" },
+      { label: "AI Template Builder", href: "/ai-template-builder", icon: LayoutTemplate, color: "text-rose-500" },
       { label: "Settings", href: "#", icon: Settings, color: "text-stone-500" },
     ],
   },
 ];
 
 type AppShellProps = {
-  activePage: "dashboard" | "calendar" | "kanban" | "notes" | "whiteboard" | "spaces";
+  activePage: "dashboard" | "calendar" | "kanban" | "notes" | "whiteboard" | "spaces" | "ai-template-builder";
+  generatedSidebarApps?: GeneratedSidebarAppDTO[];
   children: ReactNode;
 };
 
-export function AppShell({ activePage, children }: AppShellProps) {
+export function AppShell({ activePage, generatedSidebarApps = [], children }: AppShellProps) {
   const [collapsed, setCollapsed] = useState(false);
+  const [sidebarApps, setSidebarApps] = useState(generatedSidebarApps);
+
+  function removeGeneratedSidebarApp(appId: number) {
+    setSidebarApps((current) => current.filter((app) => app.id !== appId));
+    toggleGeneratedAppSidebar(appId, false).catch(() => setSidebarApps(generatedSidebarApps));
+  }
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <div className="flex min-h-screen overflow-hidden">
+    <div className="h-screen bg-background text-foreground">
+      <div className="flex h-screen overflow-hidden">
         <aside
           className={cn(
-            "flex shrink-0 flex-col border-r border-border bg-sidebar px-2.5 py-3.5 shadow-[1px_0_24px_rgba(70,54,40,0.05)] transition-[width] duration-300 ease-out",
+            "flex h-screen max-h-screen shrink-0 flex-col overflow-hidden border-r border-border bg-sidebar px-2.5 py-3.5 shadow-[1px_0_24px_rgba(70,54,40,0.05)] transition-[width] duration-300 ease-out",
             collapsed ? "w-[4.5rem]" : "w-64 max-sm:w-[4.5rem]",
           )}
         >
@@ -122,7 +132,7 @@ export function AppShell({ activePage, children }: AppShellProps) {
             </div>
           </div>
 
-          <nav className="mt-5 flex flex-1 flex-col gap-4" aria-label="Primary navigation">
+          <nav className="mt-5 flex min-h-0 flex-1 flex-col gap-3 overflow-hidden" aria-label="Primary navigation">
             {navGroups.map((group) => (
               <div key={group.label} className="space-y-1">
                 <p
@@ -142,7 +152,8 @@ export function AppShell({ activePage, children }: AppShellProps) {
                     (activePage === "kanban" && item.href === "/kanban") ||
                     (activePage === "notes" && item.href === "/notes") ||
                     (activePage === "whiteboard" && item.href === "/whiteboard") ||
-                    (activePage === "spaces" && item.href === "/spaces");
+                    (activePage === "spaces" && item.href === "/spaces") ||
+                    (activePage === "ai-template-builder" && item.href === "/ai-template-builder");
 
                   return (
                     <Link
@@ -173,9 +184,62 @@ export function AppShell({ activePage, children }: AppShellProps) {
                 })}
               </div>
             ))}
+            {sidebarApps.length > 0 && (
+              <div className="space-y-1">
+                <p
+                  className={cn(
+                    "px-2.5 text-[10px] font-semibold uppercase leading-5 tracking-[0.08em] text-muted-foreground/75 transition-opacity duration-200",
+                    collapsed && "sr-only",
+                    "max-sm:sr-only",
+                  )}
+                >
+                  Generated
+                </p>
+                {sidebarApps.map((app) => {
+                  const Icon = getGeneratedAppIcon(app.icon);
+                  return (
+                    <div key={app.id} className="group flex items-center">
+                      <Link
+                        href={`/ai-template-builder/${app.id}`}
+                        aria-label={app.appName}
+                        title={collapsed ? app.appName : undefined}
+                        className={cn(
+                          "flex h-9 min-w-0 flex-1 items-center rounded-lg px-2.5 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground",
+                          collapsed ? "justify-center" : "gap-2.5 max-sm:justify-center",
+                        )}
+                      >
+                        <Icon className="size-4 shrink-0" style={{ color: app.color }} aria-hidden="true" />
+                        <span
+                          className={cn(
+                            "min-w-0 truncate transition-[opacity,width] duration-200",
+                            collapsed && "w-0 opacity-0",
+                            "max-sm:hidden",
+                          )}
+                        >
+                          {app.appName}
+                        </span>
+                      </Link>
+                      <button
+                        type="button"
+                        className={cn(
+                          "mr-1 flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 transition hover:bg-background hover:text-foreground group-hover:opacity-100",
+                          collapsed && "hidden",
+                          "max-sm:hidden",
+                        )}
+                        aria-label={`Remove ${app.appName} from sidebar`}
+                        title={`Remove ${app.appName} from sidebar`}
+                        onClick={() => removeGeneratedSidebarApp(app.id)}
+                      >
+                        <X className="size-3" aria-hidden="true" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </nav>
 
-          <div className="border-t border-border pt-3">
+          <div className="shrink-0 border-t border-border pt-3">
             <div
               className={cn(
                 "flex items-center rounded-lg bg-card p-1.5 shadow-sm",
@@ -183,7 +247,6 @@ export function AppShell({ activePage, children }: AppShellProps) {
               )}
             >
               <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-sage-100 text-sage-700">
-                {/* <Users className="size-3.5" aria-hidden="true" /> */}
                 <UserButton />
               </div>
               <div

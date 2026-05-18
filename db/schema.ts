@@ -115,6 +115,23 @@ export const whiteboards = pgTable("whiteboards", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+export const generatedApps = pgTable("generated_apps", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  appName: text("app_name").notNull(),
+  description: text("description").notNull(),
+  icon: text("icon").notNull().default("LayoutTemplate"),
+  color: text("color").notNull().default("#F97316"),
+  layout: text("layout").notNull().default("single-page"),
+  definition: jsonb("definition").$type<Record<string, unknown>>().notNull(),
+  appState: jsonb("app_state").$type<Record<string, unknown>>().notNull().default({}),
+  isInSidebar: boolean("is_in_sidebar").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 export const spaces = pgTable("spaces", {
   id: serial("id").primaryKey(),
   userId: integer("user_id")
@@ -209,6 +226,8 @@ export type Note = typeof notes.$inferSelect;
 export type NewNote = typeof notes.$inferInsert;
 export type Whiteboard = typeof whiteboards.$inferSelect;
 export type NewWhiteboard = typeof whiteboards.$inferInsert;
+export type GeneratedApp = typeof generatedApps.$inferSelect;
+export type NewGeneratedApp = typeof generatedApps.$inferInsert;
 export type Space = typeof spaces.$inferSelect;
 export type NewSpace = typeof spaces.$inferInsert;
 export type SpaceShare = typeof spaceShares.$inferSelect;

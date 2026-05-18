@@ -2,6 +2,7 @@ import { currentUser } from "@clerk/nextjs/server";
 import { Columns3 } from "lucide-react";
 import { redirect } from "next/navigation";
 
+import { listSidebarGeneratedApps } from "@/app/ai-template-builder/actions";
 import { listKanbanBoards } from "@/app/kanban/actions";
 import { KanbanWorkspace } from "@/app/kanban/kanban-workspace";
 import { AppShell } from "@/components/app-shell";
@@ -14,10 +15,10 @@ export default async function KanbanPage() {
   }
 
   await syncCurrentUserToDatabase();
-  const boards = await listKanbanBoards();
+  const [boards, sidebarApps] = await Promise.all([listKanbanBoards(), listSidebarGeneratedApps()]);
 
   return (
-    <AppShell activePage="kanban">
+    <AppShell activePage="kanban" generatedSidebarApps={sidebarApps}>
       <section className="mx-auto flex w-full max-w-[96rem] flex-col gap-4 px-4 py-4 sm:px-6 lg:px-8">
         <header className="border-b border-border pb-4">
           <div className="min-w-0">

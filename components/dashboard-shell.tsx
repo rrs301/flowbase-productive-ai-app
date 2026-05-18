@@ -3,6 +3,7 @@ import { CalendarDays, Plus } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import type { GeneratedSidebarAppDTO } from "@/app/ai-template-builder/actions";
 import { cn } from "@/lib/utils";
 
 const stats = [
@@ -24,9 +25,9 @@ const taskCards = [
   { title: "Whiteboard ideas", meta: "14 objects", color: "border-l-amber-400" },
 ];
 
-export function DashboardShell() {
+export function DashboardShell({ generatedSidebarApps = [] }: { generatedSidebarApps?: GeneratedSidebarAppDTO[] }) {
   return (
-    <AppShell activePage="dashboard">
+    <AppShell activePage="dashboard" generatedSidebarApps={generatedSidebarApps}>
       <section className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-5 py-6 sm:px-8 lg:px-10">
         <header className="flex flex-col gap-4 border-b border-border pb-6 lg:flex-row lg:items-center lg:justify-between">
           <div>
