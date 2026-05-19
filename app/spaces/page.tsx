@@ -2,10 +2,8 @@ import { currentUser } from "@clerk/nextjs/server";
 import { FolderKanban } from "lucide-react";
 import { redirect } from "next/navigation";
 
-import { listSidebarGeneratedApps } from "@/app/ai-template-builder/actions";
 import { listSpacesData } from "@/app/spaces/actions";
 import { SpacesWorkspace } from "@/app/spaces/spaces-workspace";
-import { AppShell } from "@/components/app-shell";
 import { syncCurrentUserToDatabase } from "@/lib/sync-user";
 
 export default async function SpacesPage() {
@@ -15,11 +13,10 @@ export default async function SpacesPage() {
   }
 
   await syncCurrentUserToDatabase();
-  const [data, sidebarApps] = await Promise.all([listSpacesData(), listSidebarGeneratedApps()]);
+  const data = await listSpacesData();
 
   return (
-    <AppShell activePage="spaces" generatedSidebarApps={sidebarApps}>
-      <section className="mx-auto flex h-screen max-h-screen w-full max-w-[104rem] flex-col gap-4 px-4 py-4 sm:px-6 lg:px-8">
+    <section className="mx-auto flex h-screen max-h-screen w-full max-w-[104rem] flex-col gap-4 px-4 py-4 sm:px-6 lg:px-8">
         <header className="shrink-0 border-b border-border pb-4">
           <div className="flex items-center gap-3">
             <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-violet-100 text-violet-700">
@@ -35,7 +32,6 @@ export default async function SpacesPage() {
         </header>
 
         <SpacesWorkspace initialData={data} />
-      </section>
-    </AppShell>
+    </section>
   );
 }

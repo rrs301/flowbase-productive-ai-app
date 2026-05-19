@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import {
   ArrowRight,
   BarChart3,
@@ -16,16 +17,12 @@ import {
   Sparkles,
 } from "lucide-react";
 
-import type { GeneratedSidebarAppDTO } from "@/app/ai-template-builder/actions";
 import type { DashboardData } from "@/app/dashboard/actions";
-import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 type DashboardShellProps = {
   data: DashboardData;
-  generatedSidebarApps?: GeneratedSidebarAppDTO[];
 };
 
 const featureIcons: Record<string, LucideIcon> = {
@@ -48,48 +45,48 @@ const actionIcons: Record<string, LucideIcon> = {
 
 const toneClasses = {
   sage: {
-    icon: "bg-sage-100 text-sage-700",
     dot: "bg-sage-400",
-    border: "border-l-sage-400",
     chip: "bg-sage-100 text-sage-800",
     text: "text-sage-700",
+    tile: "border-sage-200 bg-sage-100/70",
   },
   clay: {
-    icon: "bg-clay-100 text-clay-700",
     dot: "bg-clay-400",
-    border: "border-l-clay-400",
     chip: "bg-clay-100 text-clay-800",
     text: "text-clay-700",
+    tile: "border-clay-200 bg-clay-100/80",
   },
   amber: {
-    icon: "bg-amber-100 text-amber-700",
     dot: "bg-amber-400",
-    border: "border-l-amber-400",
     chip: "bg-amber-100 text-amber-800",
     text: "text-amber-700",
+    tile: "border-amber-200 bg-amber-100/75",
   },
   sky: {
-    icon: "bg-sky-100 text-sky-700",
     dot: "bg-sky-400",
-    border: "border-l-sky-400",
     chip: "bg-sky-100 text-sky-800",
     text: "text-sky-700",
+    tile: "border-sky-200 bg-sky-100/75",
   },
   violet: {
-    icon: "bg-violet-100 text-violet-700",
     dot: "bg-violet-400",
-    border: "border-l-violet-400",
     chip: "bg-violet-100 text-violet-800",
     text: "text-violet-700",
+    tile: "border-violet-200 bg-violet-100/75",
   },
   rose: {
-    icon: "bg-rose-100 text-rose-700",
     dot: "bg-rose-400",
-    border: "border-l-rose-400",
     chip: "bg-rose-100 text-rose-800",
     text: "text-rose-700",
+    tile: "border-rose-200 bg-rose-100/75",
   },
 };
+
+const heroMetrics = [
+  { label: "Tasks", value: "total" },
+  { label: "Complete", value: "progress" },
+  { label: "Upcoming", value: "upcoming" },
+] as const;
 
 function formatDateTime(value: string) {
   return new Intl.DateTimeFormat("en", {
@@ -120,85 +117,103 @@ function EmptyState({ children }: { children: string }) {
   );
 }
 
-function SectionHeader({ title, icon: Icon }: { title: string; icon: LucideIcon }) {
+function SectionHeader({ title, icon: Icon, action }: { title: string; icon: LucideIcon; action?: ReactNode }) {
   return (
-    <CardHeader className="flex-row items-center justify-between space-y-0 p-5 pb-3">
-      <CardTitle className="flex items-center gap-2 text-base">
-        <Icon className="size-4 text-primary" aria-hidden="true" />
+    <div className="mb-3 flex items-center justify-between gap-3">
+      <h2 className="flex items-center gap-2 text-base font-semibold">
+        <span className="flex size-8 items-center justify-center rounded-lg bg-card text-primary shadow-sm">
+          <Icon className="size-4" aria-hidden="true" />
+        </span>
         {title}
-      </CardTitle>
-    </CardHeader>
+      </h2>
+      {action}
+    </div>
   );
 }
 
-export function DashboardShell({ data, generatedSidebarApps = [] }: DashboardShellProps) {
+export function DashboardShell({ data }: DashboardShellProps) {
+  const heroMetricValues = {
+    total: data.taskSummary.total,
+    progress: `${data.taskSummary.progress}%`,
+    upcoming: data.upcoming.length,
+  };
+
   return (
-    <AppShell activePage="dashboard" generatedSidebarApps={generatedSidebarApps}>
-      <section className="mx-auto flex w-full max-w-[100rem] flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
-        <header className="flex flex-col gap-4 border-b border-border pb-6 lg:flex-row lg:items-end lg:justify-between">
-          <div className="min-w-0">
-            <p className="flex items-center gap-2 text-sm font-medium text-primary">
-              <Sparkles className="size-4 text-clay-600" aria-hidden="true" />
-              Dashboard
-            </p>
-            <h1 className="mt-2 text-3xl font-semibold leading-tight text-foreground">
-              Welcome back, {data.userName}.
-            </h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-              A live overview of your tasks, schedule, notes, whiteboards, and AI-powered work.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button asChild variant="outline" className="rounded-lg bg-card">
-              <Link href="/calendar">
-                <CalendarDays className="mr-2 size-4 text-sage-600" aria-hidden="true" />
-                Calendar
-              </Link>
-            </Button>
-            <Button asChild className="rounded-lg">
-              <Link href="/kanban">
-                <Plus className="mr-2 size-4" aria-hidden="true" />
-                New task
-              </Link>
-            </Button>
+    <section className="mx-auto flex w-full max-w-[100rem] flex-col gap-8 px-4 py-6 sm:px-6 lg:px-8">
+        <header className="relative overflow-hidden rounded-lg border border-border bg-[linear-gradient(135deg,hsl(11_94%_94%)_0%,hsl(153_58%_91%)_43%,hsl(190_70%_92%)_100%)] p-5 shadow-[0_18px_50px_rgba(70,54,40,0.08)] sm:p-6 lg:p-8">
+          <div className="absolute right-0 top-0 h-24 w-44 rounded-bl-full bg-amber-200/60" aria-hidden="true" />
+          <div className="absolute bottom-0 right-16 h-16 w-36 rounded-t-full bg-rose-100/80" aria-hidden="true" />
+          <div className="relative grid gap-6 lg:grid-cols-[1fr_28rem] lg:items-end">
+            <div className="min-w-0">
+              <p className="flex items-center gap-2 text-sm font-semibold text-clay-700">
+                <Sparkles className="size-4" aria-hidden="true" />
+                Dashboard
+              </p>
+              <h1 className="mt-3 max-w-3xl text-3xl font-semibold leading-tight text-foreground sm:text-4xl">
+                Welcome back, {data.userName}.
+              </h1>
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">
+                Your workspace is awake: tasks, calendar, pages, and AI work are gathered here for a clear start.
+              </p>
+              <div className="mt-5 flex flex-wrap gap-2">
+                <Button asChild className="rounded-lg shadow-sm">
+                  <Link href="/kanban">
+                    <Plus className="mr-2 size-4" aria-hidden="true" />
+                    New task
+                  </Link>
+                </Button>
+                <Button asChild variant="outline" className="rounded-lg border-white/70 bg-white/75">
+                  <Link href="/calendar">
+                    <CalendarDays className="mr-2 size-4 text-sage-600" aria-hidden="true" />
+                    Calendar
+                  </Link>
+                </Button>
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-2 rounded-lg border border-white/60 bg-white/45 p-2 backdrop-blur-sm">
+              {heroMetrics.map((metric) => (
+                <div key={metric.label} className="rounded-lg bg-white/70 p-3">
+                  <p className="text-[11px] font-medium uppercase text-muted-foreground">{metric.label}</p>
+                  <p className="mt-1 text-2xl font-semibold text-foreground">{heroMetricValues[metric.value]}</p>
+                </div>
+              ))}
+            </div>
           </div>
         </header>
 
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
           {data.features.map((feature) => {
             const Icon = featureIcons[feature.key];
             const tone = toneClasses[feature.tone];
             return (
-              <Card key={feature.key} className="rounded-lg border-border bg-card shadow-sm">
-                <CardContent className="flex h-full flex-col gap-4 p-5">
-                  <div className="flex items-start justify-between gap-3">
-                    <span className={cn("flex size-10 shrink-0 items-center justify-center rounded-lg", tone.icon)}>
-                      <Icon className="size-5" aria-hidden="true" />
-                    </span>
-                    <span
-                      className={cn(
-                        "rounded-full px-2.5 py-1 text-[11px] font-semibold",
-                        feature.status === "Disabled" ? "bg-muted text-muted-foreground" : tone.chip,
-                      )}
-                    >
-                      {feature.status}
-                    </span>
-                  </div>
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold">{feature.name}</p>
-                    <p className="mt-2 text-2xl font-semibold leading-none">{feature.stat}</p>
-                    <p className="mt-2 truncate text-xs text-muted-foreground">{feature.detail}</p>
-                  </div>
-                </CardContent>
-              </Card>
+              <div key={feature.key} className={cn("rounded-lg border p-4 shadow-sm", tone.tile)}>
+                <div className="flex items-start justify-between gap-3">
+                  <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-white/75 shadow-sm">
+                    <Icon className={cn("size-5", tone.text)} aria-hidden="true" />
+                  </span>
+                  <span
+                    className={cn(
+                      "rounded-full bg-white/70 px-2.5 py-1 text-[11px] font-semibold",
+                      feature.status === "Disabled" ? "text-muted-foreground" : tone.text,
+                    )}
+                  >
+                    {feature.status}
+                  </span>
+                </div>
+                <div className="mt-4 min-w-0">
+                  <p className="truncate text-sm font-semibold">{feature.name}</p>
+                  <p className="mt-2 text-2xl font-semibold leading-none">{feature.stat}</p>
+                  <p className="mt-2 truncate text-xs text-muted-foreground">{feature.detail}</p>
+                </div>
+              </div>
             );
           })}
         </div>
 
-        <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
-          <Card className="rounded-lg border-border bg-card shadow-sm">
+        <div className="grid gap-8 xl:grid-cols-[1.15fr_0.85fr]">
+          <section>
             <SectionHeader title="Quick access" icon={ArrowRight} />
-            <CardContent className="grid gap-3 p-5 pt-0 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {data.quickActions.map((action) => {
                 const Icon = actionIcons[action.label] ?? ArrowRight;
                 const tone = toneClasses[action.tone];
@@ -207,13 +222,13 @@ export function DashboardShell({ data, generatedSidebarApps = [] }: DashboardShe
                     key={action.label}
                     href={action.href}
                     className={cn(
-                      "group rounded-lg border border-border border-l-4 bg-background p-4 transition hover:-translate-y-0.5 hover:bg-card hover:shadow-sm",
-                      tone.border,
+                      "group rounded-lg border p-4 transition hover:-translate-y-0.5 hover:shadow-md",
+                      tone.tile,
                     )}
                   >
                     <div className="flex items-start gap-3">
-                      <span className={cn("flex size-9 shrink-0 items-center justify-center rounded-lg", tone.icon)}>
-                        <Icon className="size-4" aria-hidden="true" />
+                      <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-white/75 shadow-sm">
+                        <Icon className={cn("size-4", tone.text)} aria-hidden="true" />
                       </span>
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-semibold">{action.label}</p>
@@ -223,20 +238,20 @@ export function DashboardShell({ data, generatedSidebarApps = [] }: DashboardShe
                   </Link>
                 );
               })}
-            </CardContent>
-          </Card>
+            </div>
+          </section>
 
-          <Card className="rounded-lg border-border bg-card shadow-sm">
+          <section className="rounded-lg border border-border bg-card p-5 shadow-sm">
             <SectionHeader title="Task summary" icon={BarChart3} />
-            <CardContent className="space-y-5 p-5 pt-0">
-              <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-5">
+              <div className="grid grid-cols-2 gap-2">
                 {[
-                  ["Total", data.taskSummary.total],
-                  ["Completed", data.taskSummary.completed],
-                  ["Pending", data.taskSummary.pending],
-                  ["Overdue", data.taskSummary.overdue],
-                ].map(([label, value]) => (
-                  <div key={label} className="rounded-lg border border-border bg-background p-3">
+                  ["Total", data.taskSummary.total, "bg-sky-100/70"],
+                  ["Completed", data.taskSummary.completed, "bg-sage-100/80"],
+                  ["Pending", data.taskSummary.pending, "bg-amber-100/75"],
+                  ["Overdue", data.taskSummary.overdue, "bg-rose-100/75"],
+                ].map(([label, value, className]) => (
+                  <div key={label} className={cn("rounded-lg p-3", className)}>
                     <p className="text-xs text-muted-foreground">{label}</p>
                     <p className="mt-1 text-2xl font-semibold">{value}</p>
                   </div>
@@ -248,25 +263,27 @@ export function DashboardShell({ data, generatedSidebarApps = [] }: DashboardShe
                   <span className="text-muted-foreground">{data.taskSummary.progress}%</span>
                 </div>
                 <div className="h-3 overflow-hidden rounded-full bg-muted">
-                  <div className="h-full rounded-full bg-primary transition-[width]" style={{ width: `${data.taskSummary.progress}%` }} />
+                  <div className="h-full rounded-full bg-[linear-gradient(90deg,hsl(8_82%_62%),hsl(38_91%_56%),hsl(158_46%_58%))] transition-[width]" style={{ width: `${data.taskSummary.progress}%` }} />
                 </div>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </section>
         </div>
 
-        <div className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
-          <Card className="rounded-lg border-border bg-card shadow-sm">
+        <div className="grid gap-8 xl:grid-cols-[0.95fr_1.05fr]">
+          <section>
             <SectionHeader title="Upcoming calendar" icon={CalendarDays} />
-            <CardContent className="space-y-3 p-5 pt-0">
+            <div className="space-y-3">
               {data.upcoming.length ? (
                 data.upcoming.map((item) => (
                   <Link
                     key={item.id}
                     href="/calendar"
-                    className="flex items-center gap-3 rounded-lg border border-border bg-background p-3 transition hover:bg-card hover:shadow-sm"
+                    className="flex items-center gap-3 rounded-lg border border-border bg-card/80 p-3 transition hover:bg-card hover:shadow-sm"
                   >
-                    <span className="size-3 rounded-full" style={{ backgroundColor: item.color }} aria-hidden="true" />
+                    <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-background">
+                      <span className="size-3 rounded-full" style={{ backgroundColor: item.color }} aria-hidden="true" />
+                    </span>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium">{item.title}</p>
                       <p className="mt-1 truncate text-xs text-muted-foreground">{formatCalendarDate(item.date, item.time)}</p>
@@ -279,12 +296,12 @@ export function DashboardShell({ data, generatedSidebarApps = [] }: DashboardShe
               ) : (
                 <EmptyState>No upcoming calendar tasks or reminders yet.</EmptyState>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </section>
 
-          <Card className="rounded-lg border-border bg-card shadow-sm">
+          <section className="rounded-lg bg-card/70 p-5 shadow-sm ring-1 ring-border">
             <SectionHeader title="Recent activity" icon={Clock3} />
-            <CardContent className="space-y-3 p-5 pt-0">
+            <div className="space-y-1">
               {data.recentActivity.length ? (
                 data.recentActivity.map((item) => {
                   const tone = toneClasses[item.tone];
@@ -303,14 +320,14 @@ export function DashboardShell({ data, generatedSidebarApps = [] }: DashboardShe
               ) : (
                 <EmptyState>Your recent activity will appear here once you create something.</EmptyState>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </section>
         </div>
 
-        <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
-          <Card className="rounded-lg border-border bg-card shadow-sm">
+        <div className="grid gap-8 xl:grid-cols-[1.05fr_0.95fr]">
+          <section>
             <SectionHeader title="Recent pages" icon={FileText} />
-            <CardContent className="grid gap-3 p-5 pt-0 sm:grid-cols-2">
+            <div className="grid gap-3 sm:grid-cols-2">
               {data.recentPages.length ? (
                 data.recentPages.map((page) => {
                   const tone = toneClasses[page.tone];
@@ -318,7 +335,7 @@ export function DashboardShell({ data, generatedSidebarApps = [] }: DashboardShe
                     <Link
                       key={page.id}
                       href={page.href}
-                      className={cn("rounded-lg border border-border border-l-4 bg-background p-4 transition hover:bg-card hover:shadow-sm", tone.border)}
+                      className={cn("rounded-lg border p-4 transition hover:-translate-y-0.5 hover:shadow-sm", tone.tile)}
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
@@ -336,15 +353,15 @@ export function DashboardShell({ data, generatedSidebarApps = [] }: DashboardShe
                   <EmptyState>Notes, boards, whiteboards, and templates will appear here.</EmptyState>
                 </div>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </section>
 
-          <Card className="rounded-lg border-border bg-card shadow-sm">
+          <section className="rounded-lg border border-violet-200 bg-violet-100/45 p-5 shadow-sm">
             <SectionHeader title="AI insights" icon={Sparkles} />
-            <CardContent className="space-y-3 p-5 pt-0">
+            <div className="space-y-3">
               {data.insights.map((insight, index) => (
-                <div key={insight} className="flex gap-3 rounded-lg border border-border bg-background p-3">
-                  <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-violet-100 text-xs font-semibold text-violet-700">
+                <div key={insight} className="flex gap-3 rounded-lg bg-white/70 p-3">
+                  <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-violet-200/70 text-xs font-semibold text-violet-700">
                     {index + 1}
                   </span>
                   <p className="text-sm leading-6 text-muted-foreground">{insight}</p>
@@ -356,10 +373,9 @@ export function DashboardShell({ data, generatedSidebarApps = [] }: DashboardShe
                   {data.taskSummary.completed} task{data.taskSummary.completed === 1 ? "" : "s"} completed.
                 </div>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </section>
         </div>
-      </section>
-    </AppShell>
+    </section>
   );
 }

@@ -2,11 +2,9 @@ import { currentUser } from "@clerk/nextjs/server";
 import { CalendarDays } from "lucide-react";
 import { redirect } from "next/navigation";
 
-import { listSidebarGeneratedApps } from "@/app/ai-template-builder/actions";
 import { listCalendarItems } from "@/app/calendar/actions";
 import { CalendarBoard } from "@/app/calendar/calendar-board";
 import { listCategoriesForScopes } from "@/app/settings/actions";
-import { AppShell } from "@/components/app-shell";
 import { syncCurrentUserToDatabase } from "@/lib/sync-user";
 
 export default async function CalendarPage() {
@@ -16,15 +14,13 @@ export default async function CalendarPage() {
   }
 
   await syncCurrentUserToDatabase();
-  const [items, sidebarApps, categories] = await Promise.all([
+  const [items, categories] = await Promise.all([
     listCalendarItems(),
-    listSidebarGeneratedApps(),
     listCategoriesForScopes(["calendar", "reminder"]),
   ]);
 
   return (
-    <AppShell activePage="calendar" generatedSidebarApps={sidebarApps}>
-      <section className="mx-auto flex w-full max-w-[95rem] flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
+    <section className="mx-auto flex w-full max-w-[95rem] flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
         <header className="flex flex-col gap-4 border-b border-border pb-6 lg:flex-row lg:items-center lg:justify-between">
           <div className="min-w-0">
             <p className="flex items-center gap-2 text-sm font-medium text-primary">
@@ -41,7 +37,6 @@ export default async function CalendarPage() {
         </header>
 
         <CalendarBoard initialItems={items} categories={categories} />
-      </section>
-    </AppShell>
+    </section>
   );
 }

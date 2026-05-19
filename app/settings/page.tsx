@@ -2,10 +2,8 @@ import { currentUser } from "@clerk/nextjs/server";
 import { Settings } from "lucide-react";
 import { redirect } from "next/navigation";
 
-import { listSidebarGeneratedApps } from "@/app/ai-template-builder/actions";
 import { listSettingsPageData } from "@/app/settings/actions";
 import { SettingsWorkspace } from "@/app/settings/settings-workspace";
-import { AppShell } from "@/components/app-shell";
 import { syncCurrentUserToDatabase } from "@/lib/sync-user";
 
 export default async function SettingsPage() {
@@ -15,11 +13,10 @@ export default async function SettingsPage() {
   }
 
   await syncCurrentUserToDatabase();
-  const [settingsData, sidebarApps] = await Promise.all([listSettingsPageData(), listSidebarGeneratedApps()]);
+  const settingsData = await listSettingsPageData();
 
   return (
-    <AppShell activePage="settings" generatedSidebarApps={sidebarApps}>
-      <section className="mx-auto flex w-full max-w-[92rem] flex-col gap-5 px-4 py-5 sm:px-6 lg:px-8">
+    <section className="mx-auto flex w-full max-w-[92rem] flex-col gap-5 px-4 py-5 sm:px-6 lg:px-8">
         <header className="flex flex-col gap-3 border-b border-border pb-5">
           <p className="flex items-center gap-2 text-sm font-medium text-primary">
             <Settings className="size-4 text-stone-500" aria-hidden="true" />
@@ -34,7 +31,6 @@ export default async function SettingsPage() {
         </header>
 
         <SettingsWorkspace initialData={settingsData} />
-      </section>
-    </AppShell>
+    </section>
   );
 }

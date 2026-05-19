@@ -3,8 +3,7 @@ import { LayoutTemplate } from "lucide-react";
 import { redirect } from "next/navigation";
 
 import { AiTemplateBuilderWorkspace } from "@/app/ai-template-builder/ai-template-builder-workspace";
-import { listGeneratedApps, listSidebarGeneratedApps } from "@/app/ai-template-builder/actions";
-import { AppShell } from "@/components/app-shell";
+import { listGeneratedApps } from "@/app/ai-template-builder/actions";
 import { syncCurrentUserToDatabase } from "@/lib/sync-user";
 
 export default async function AiTemplateBuilderPage() {
@@ -14,11 +13,10 @@ export default async function AiTemplateBuilderPage() {
   }
 
   await syncCurrentUserToDatabase();
-  const [apps, sidebarApps] = await Promise.all([listGeneratedApps(), listSidebarGeneratedApps()]);
+  const apps = await listGeneratedApps();
 
   return (
-    <AppShell activePage="ai-template-builder" generatedSidebarApps={sidebarApps}>
-      <section className="mx-auto flex w-full max-w-[104rem] flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
+    <section className="mx-auto flex w-full max-w-[104rem] flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
         <header className="flex flex-col gap-4 border-b border-border pb-6 lg:flex-row lg:items-center lg:justify-between">
           <div className="min-w-0">
             <p className="flex items-center gap-2 text-sm font-medium text-primary">
@@ -35,7 +33,6 @@ export default async function AiTemplateBuilderPage() {
         </header>
 
         <AiTemplateBuilderWorkspace initialApps={apps} />
-      </section>
-    </AppShell>
+    </section>
   );
 }

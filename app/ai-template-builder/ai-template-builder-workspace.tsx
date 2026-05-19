@@ -14,6 +14,7 @@ import { GeneratedAppPreview } from "@/app/ai-template-builder/generated-app-pre
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { getGeneratedAppIcon } from "@/lib/generated-app-icons";
+import { refreshSidebarApps } from "@/lib/sidebar-events";
 
 type AiTemplateBuilderWorkspaceProps = {
   initialApps: GeneratedAppDTO[];
@@ -69,6 +70,7 @@ export function AiTemplateBuilderWorkspace({ initialApps }: AiTemplateBuilderWor
       try {
         const updated = await toggleGeneratedAppSidebar(app.id, !app.isInSidebar);
         setApps((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+        refreshSidebarApps();
         setMessage(updated.isInSidebar ? `${updated.appName} was added to the sidebar.` : `${updated.appName} was removed from the sidebar.`);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Could not update the sidebar.");
@@ -84,6 +86,7 @@ export function AiTemplateBuilderWorkspace({ initialApps }: AiTemplateBuilderWor
         const nextApps = await deleteGeneratedApp(app.id);
         setApps(nextApps);
         setSelectedAppId((current) => (current === app.id ? nextApps[0]?.id ?? null : current));
+        refreshSidebarApps();
         setMessage(`${app.appName} was deleted.`);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Could not delete the app.");

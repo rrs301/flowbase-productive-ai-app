@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   Bot,
   CalendarDays,
@@ -19,12 +20,13 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
-import { ReactNode, useState } from "react";
+import { ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 
-import { toggleGeneratedAppSidebar } from "@/app/ai-template-builder/actions";
+import { listSidebarGeneratedApps, toggleGeneratedAppSidebar } from "@/app/ai-template-builder/actions";
 import type { GeneratedSidebarAppDTO } from "@/app/ai-template-builder/actions";
 import { Button } from "@/components/ui/button";
 import { getGeneratedAppIcon } from "@/lib/generated-app-icons";
+import { sidebarAppsRefreshEvent } from "@/lib/sidebar-events";
 import { cn } from "@/lib/utils";
 import { UserButton } from "@clerk/nextjs";
 
@@ -68,23 +70,52 @@ const navGroups: NavGroup[] = [
 ];
 
 type AppShellProps = {
-  activePage:
-    | "dashboard"
-    | "ai-assistant"
-    | "calendar"
-    | "kanban"
-    | "notes"
-    | "whiteboard"
-    | "spaces"
-    | "ai-template-builder"
-    | "settings";
   generatedSidebarApps?: GeneratedSidebarAppDTO[];
   children: ReactNode;
 };
 
-export function AppShell({ activePage, generatedSidebarApps = [], children }: AppShellProps) {
+const emptyGeneratedSidebarApps: GeneratedSidebarAppDTO[] = [];
+
+function getActivePage(pathname: string) {
+  if (pathname.startsWith("/ai-template-builder")) return "ai-template-builder";
+  return pathname.split("/")[1] || "dashboard";
+}
+
+export function AppShell({ generatedSidebarApps = emptyGeneratedSidebarApps, children }: AppShellProps) {
+  const pathname = usePathname();
+  const activePage = useMemo(() => getActivePage(pathname), [pathname]);
   const [collapsed, setCollapsed] = useState(false);
   const [sidebarApps, setSidebarApps] = useState(generatedSidebarApps);
+
+  const refreshSidebarApps = useCallback(() => {
+    let cancelled = false;
+
+    listSidebarGeneratedApps()
+      .then((apps) => {
+        if (!cancelled) setSidebarApps(apps);
+      })
+      .catch(() => {
+        if (!cancelled) setSidebarApps(generatedSidebarApps);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [generatedSidebarApps]);
+
+  useEffect(() => {
+    const cancelRefresh = refreshSidebarApps();
+    const handleRefresh = () => {
+      refreshSidebarApps();
+    };
+
+    window.addEventListener(sidebarAppsRefreshEvent, handleRefresh);
+
+    return () => {
+      cancelRefresh();
+      window.removeEventListener(sidebarAppsRefreshEvent, handleRefresh);
+    };
+  }, [refreshSidebarApps]);
 
   function removeGeneratedSidebarApp(appId: number) {
     setSidebarApps((current) => current.filter((app) => app.id !== appId));
@@ -170,6 +201,7 @@ export function AppShell({ activePage, generatedSidebarApps = [], children }: Ap
                     <Link
                       key={item.label}
                       href={item.href}
+                      scroll={false}
                       aria-label={item.label}
                       title={collapsed ? item.label : undefined}
                       className={cn(
@@ -212,6 +244,7 @@ export function AppShell({ activePage, generatedSidebarApps = [], children }: Ap
                     <div key={app.id} className="group flex items-center">
                       <Link
                         href={`/ai-template-builder/${app.id}`}
+                        scroll={false}
                         aria-label={app.appName}
                         title={collapsed ? app.appName : undefined}
                         className={cn(

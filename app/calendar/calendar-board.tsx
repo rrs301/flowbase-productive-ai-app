@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, CalendarDays, ChevronLeft, ChevronRight, Clock, GripVertical, Inbox, Plus } from "lucide-react";
+import { Bell, CalendarDays, ChevronLeft, ChevronRight, Clock, GripVertical, Inbox, PanelRightClose, PanelRightOpen, Plus, Trash2 } from "lucide-react";
 import { FormEvent, useMemo, useState, useTransition } from "react";
 
 import {
@@ -9,6 +9,8 @@ import {
   CalendarItemInput,
   CalendarItemType,
   createCalendarItem,
+  deleteCalendarItem,
+  moveCalendarItemToDraft,
   scheduleCalendarItem,
   updateCalendarItem,
 } from "@/app/calendar/actions";
@@ -108,11 +110,13 @@ export function CalendarBoard({ initialItems, categories }: { initialItems: Cale
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingItemId, setEditingItemId] = useState<number | null>(null);
   const [draggingId, setDraggingId] = useState<number | null>(null);
+  const [draftsCollapsed, setDraftsCollapsed] = useState(false);
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
 
   const scheduledItems = items.filter((item) => !item.isDraft && item.scheduledDate);
   const draftItems = items.filter((item) => item.isDraft);
+  const editingItem = editingItemId ? items.find((item) => item.id === editingItemId) ?? null : null;
   const visibleDays = view === "month" ? getMonthDays(anchorDate) : getWeekDays(anchorDate);
   const itemsByDate = useMemo(
     () =>
@@ -153,6 +157,10 @@ export function CalendarBoard({ initialItems, categories }: { initialItems: Cale
       const exists = current.some((item) => item.id === nextItem.id);
       return exists ? current.map((item) => (item.id === nextItem.id ? nextItem : item)) : [nextItem, ...current];
     });
+  }
+
+  function removeItem(itemId: number) {
+    setItems((current) => current.filter((item) => item.id !== itemId));
   }
 
   function submitItem(asDraft: boolean) {
@@ -198,9 +206,49 @@ export function CalendarBoard({ initialItems, categories }: { initialItems: Cale
     });
   }
 
+  function moveEditingItemToDraft() {
+    if (!editingItem || editingItem.isDraft) return;
+
+    const previous = editingItem;
+    upsertItem({ ...previous, scheduledDate: null, isDraft: true });
+    setDialogOpen(false);
+    setEditingItemId(null);
+    setError("");
+
+    startTransition(async () => {
+      try {
+        upsertItem(await moveCalendarItemToDraft(previous.id));
+      } catch (requestError) {
+        upsertItem(previous);
+        setError(requestError instanceof Error ? requestError.message : "Could not move that item to drafts.");
+      }
+    });
+  }
+
+  function deleteItem(item: CalendarItemDTO) {
+    if (!window.confirm(`Delete "${item.title}" from calendar?`)) return;
+
+    const previousItems = items;
+    removeItem(item.id);
+    if (editingItemId === item.id) {
+      setDialogOpen(false);
+      setEditingItemId(null);
+    }
+    setError("");
+
+    startTransition(async () => {
+      try {
+        await deleteCalendarItem(item.id);
+      } catch (requestError) {
+        setItems(previousItems);
+        setError(requestError instanceof Error ? requestError.message : "Could not delete that item.");
+      }
+    });
+  }
+
   return (
-    <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_20rem]">
-      <Card className="min-w-0 overflow-hidden rounded-lg border-border bg-card shadow-sm">
+    <div className={cn("grid min-w-0 gap-5 transition-[grid-template-columns]", draftsCollapsed ? "xl:grid-cols-[minmax(0,1fr)_4.5rem]" : "xl:grid-cols-[minmax(0,1fr)_20rem]")}>
+      <Card className="min-w-0 overflow-hidden rounded-lg border-border bg-card/85 shadow-[0_14px_40px_rgba(70,54,40,0.07)]">
         <CardHeader className="gap-4 p-4 sm:p-5">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="min-w-0">
@@ -208,7 +256,7 @@ export function CalendarBoard({ initialItems, categories }: { initialItems: Cale
               <p className="mt-1 text-sm text-muted-foreground">Drop drafts or scheduled items onto any date.</p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <div className="flex rounded-lg border border-border bg-background p-1">
+              <div className="flex rounded-lg border border-border bg-background/85 p-1">
                 {(["month", "week"] as CalendarView[]).map((option) => (
                   <button
                     key={option}
@@ -223,14 +271,14 @@ export function CalendarBoard({ initialItems, categories }: { initialItems: Cale
                   </button>
                 ))}
               </div>
-              <Button variant="outline" className="rounded-lg bg-card" onClick={() => setAnchorDate(today)}>
+              <Button variant="outline" className="rounded-lg bg-card/80" onClick={() => setAnchorDate(today)}>
                 <CalendarDays className="mr-2 size-4 text-sage-600" aria-hidden="true" />
                 Today
               </Button>
               <Button
                 variant="outline"
                 size="icon"
-                className="rounded-lg bg-card"
+                className="rounded-lg bg-card/80"
                 onClick={() => setAnchorDate((date) => (view === "month" ? addMonths(date, -1) : addDays(date, -7)))}
                 aria-label="Previous period"
               >
@@ -239,7 +287,7 @@ export function CalendarBoard({ initialItems, categories }: { initialItems: Cale
               <Button
                 variant="outline"
                 size="icon"
-                className="rounded-lg bg-card"
+                className="rounded-lg bg-card/80"
                 onClick={() => setAnchorDate((date) => (view === "month" ? addMonths(date, 1) : addDays(date, 7)))}
                 aria-label="Next period"
               >
@@ -279,9 +327,10 @@ export function CalendarBoard({ initialItems, categories }: { initialItems: Cale
                     onDropItem(key);
                   }}
                   className={cn(
-                    "group flex min-h-32 min-w-0 flex-col border-b border-r border-border bg-card p-2 text-left transition-colors hover:bg-accent/45 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring sm:min-h-36",
+                    "group flex min-h-32 min-w-0 flex-col border-b border-r border-border bg-card p-2 text-left transition-colors hover:bg-sage-100/45 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring sm:min-h-36",
                     view === "week" && "min-h-[28rem]",
                     view === "month" && !inCurrentMonth && "bg-background/65 text-muted-foreground",
+                    draggingId && "bg-sage-100/25",
                   )}
                 >
                   <div className="mb-2 flex items-center justify-between gap-2">
@@ -313,29 +362,72 @@ export function CalendarBoard({ initialItems, categories }: { initialItems: Cale
         </CardContent>
       </Card>
 
-      <Card className="h-fit min-w-0 rounded-lg border-border bg-card shadow-sm">
-        <CardHeader className="p-5 pb-3">
-          <div className="flex items-center justify-between gap-3">
-            <CardTitle className="text-base">Draft Task Panel</CardTitle>
-            <span className="rounded-lg bg-muted px-2 py-1 text-xs font-medium text-muted-foreground">{draftItems.length}</span>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-3 p-5 pt-0">
-          <Button variant="outline" className="w-full rounded-lg bg-background" onClick={() => openDialog(selectedDate)}>
-            <Plus className="mr-2 size-4 text-primary" aria-hidden="true" />
-            Add draft
+      {draftsCollapsed ? (
+        <aside className="h-fit min-w-0 rounded-lg border border-border bg-card/80 p-2 shadow-sm">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-12 rounded-lg bg-sage-100 text-sage-700 hover:bg-sage-200"
+            onClick={() => setDraftsCollapsed(false)}
+            aria-label="Expand draft task panel"
+            title="Expand draft task panel"
+          >
+            <PanelRightOpen className="size-4" aria-hidden="true" />
           </Button>
-          {draftItems.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-border bg-background p-5 text-center">
-              <Inbox className="mx-auto size-5 text-muted-foreground" aria-hidden="true" />
-              <p className="mt-3 text-sm font-medium">No drafts waiting</p>
-              <p className="mt-1 text-xs leading-5 text-muted-foreground">Save unscheduled tasks here, then drag them onto a date.</p>
+          <div className="mt-2 flex min-h-28 flex-col items-center justify-center gap-2 rounded-lg bg-background/75 px-2 text-center">
+            <span className="rounded-full bg-primary px-2 py-0.5 text-xs font-semibold text-primary-foreground">{draftItems.length}</span>
+            <span className="[writing-mode:vertical-rl] text-xs font-semibold uppercase text-muted-foreground">Drafts</span>
+          </div>
+        </aside>
+      ) : (
+        <Card className="h-fit min-w-0 rounded-lg border-sage-200 bg-sage-100/55 shadow-sm">
+          <CardHeader className="p-5 pb-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <CardTitle className="truncate text-base">Draft Task Panel</CardTitle>
+                <p className="mt-1 text-xs text-muted-foreground">Unscheduled work waits here.</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="rounded-lg bg-white/75 px-2 py-1 text-xs font-medium text-sage-700">{draftItems.length}</span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-8 rounded-lg bg-white/60 text-muted-foreground hover:bg-white hover:text-foreground"
+                  onClick={() => setDraftsCollapsed(true)}
+                  aria-label="Collapse draft task panel"
+                  title="Collapse draft task panel"
+                >
+                  <PanelRightClose className="size-4" aria-hidden="true" />
+                </Button>
+              </div>
             </div>
-          ) : (
-            draftItems.map((item) => <DraftTask key={item.id} item={item} categories={categoryOptions} setDraggingId={setDraggingId} />)
-          )}
-        </CardContent>
-      </Card>
+          </CardHeader>
+          <CardContent className="space-y-3 p-5 pt-0">
+            <Button variant="outline" className="w-full rounded-lg bg-white/75" onClick={() => openDialog(selectedDate)}>
+              <Plus className="mr-2 size-4 text-primary" aria-hidden="true" />
+              Add draft
+            </Button>
+            {draftItems.length === 0 ? (
+              <div className="rounded-lg border border-dashed border-sage-200 bg-white/65 p-5 text-center">
+                <Inbox className="mx-auto size-5 text-muted-foreground" aria-hidden="true" />
+                <p className="mt-3 text-sm font-medium">No drafts waiting</p>
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">Save unscheduled tasks here, then drag them onto a date.</p>
+              </div>
+            ) : (
+              draftItems.map((item) => (
+                <DraftTask
+                  key={item.id}
+                  item={item}
+                  categories={categoryOptions}
+                  setDraggingId={setDraggingId}
+                  onDelete={() => deleteItem(item)}
+                  disabled={isPending}
+                />
+              ))
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {dialogOpen && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-foreground/20 p-4 backdrop-blur-sm sm:items-center">
@@ -427,6 +519,18 @@ export function CalendarBoard({ initialItems, categories }: { initialItems: Cale
                 </div>
               </div>
               {error && <p className="rounded-lg bg-clay-100 px-3 py-2 text-sm text-clay-800">{error}</p>}
+              {editingItem && !editingItem.isDraft && (
+                <div className="flex flex-col gap-2 rounded-lg bg-background p-2 sm:flex-row">
+                  <Button type="button" variant="outline" className="rounded-lg bg-card text-muted-foreground" onClick={moveEditingItemToDraft} disabled={isPending}>
+                    <Inbox className="mr-2 size-4 text-sage-600" aria-hidden="true" />
+                    Move to drafts
+                  </Button>
+                  <Button type="button" variant="outline" className="rounded-lg bg-card text-clay-700" onClick={() => deleteItem(editingItem)} disabled={isPending}>
+                    <Trash2 className="mr-2 size-4" aria-hidden="true" />
+                    Delete
+                  </Button>
+                </div>
+              )}
               <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
                 {!editingItemId && (
                   <Button type="button" variant="outline" className="rounded-lg bg-background" onClick={() => submitItem(true)} disabled={isPending}>
@@ -490,10 +594,14 @@ function DraftTask({
   item,
   categories,
   setDraggingId,
+  onDelete,
+  disabled,
 }: {
   item: CalendarItemDTO;
   categories: UserCategoryDTO[];
   setDraggingId: (id: number | null) => void;
+  onDelete: () => void;
+  disabled: boolean;
 }) {
   const style = categoryStyle(item.category, categories);
   return (
@@ -519,6 +627,19 @@ function DraftTask({
             <span className="rounded-md bg-muted px-2 py-0.5 text-[11px] font-medium capitalize text-muted-foreground">{item.itemType}</span>
           </div>
         </div>
+        <button
+          type="button"
+          className="flex size-7 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-clay-100 hover:text-clay-700 disabled:pointer-events-none disabled:opacity-50"
+          onClick={(event) => {
+            event.stopPropagation();
+            onDelete();
+          }}
+          disabled={disabled}
+          aria-label={`Delete ${item.title}`}
+          title="Delete draft"
+        >
+          <Trash2 className="size-3.5" aria-hidden="true" />
+        </button>
       </div>
     </div>
   );

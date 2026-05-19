@@ -7,6 +7,7 @@ import { useState, useTransition } from "react";
 import { deleteGeneratedApp, toggleGeneratedAppSidebar } from "@/app/ai-template-builder/actions";
 import type { GeneratedAppDTO } from "@/app/ai-template-builder/actions";
 import { Button } from "@/components/ui/button";
+import { refreshSidebarApps } from "@/lib/sidebar-events";
 
 type GeneratedAppDetailControlsProps = {
   app: GeneratedAppDTO;
@@ -24,7 +25,7 @@ export function GeneratedAppDetailControls({ app }: GeneratedAppDetailControlsPr
       try {
         const updated = await toggleGeneratedAppSidebar(app.id, !isInSidebar);
         setIsInSidebar(updated.isInSidebar);
-        router.refresh();
+        refreshSidebarApps();
       } catch (err) {
         setError(err instanceof Error ? err.message : "Could not update the sidebar.");
       }
@@ -36,8 +37,8 @@ export function GeneratedAppDetailControls({ app }: GeneratedAppDetailControlsPr
     startTransition(async () => {
       try {
         await deleteGeneratedApp(app.id);
+        refreshSidebarApps();
         router.push("/ai-template-builder");
-        router.refresh();
       } catch (err) {
         setError(err instanceof Error ? err.message : "Could not delete the app.");
       }

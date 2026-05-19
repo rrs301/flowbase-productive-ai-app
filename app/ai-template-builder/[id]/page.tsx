@@ -3,10 +3,9 @@ import Link from "next/link";
 import { ArrowLeft, PanelLeft } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
 
-import { getGeneratedApp, listSidebarGeneratedApps } from "@/app/ai-template-builder/actions";
+import { getGeneratedApp } from "@/app/ai-template-builder/actions";
 import { GeneratedAppDetailControls } from "@/app/ai-template-builder/generated-app-detail-controls";
 import { GeneratedAppPreview } from "@/app/ai-template-builder/generated-app-preview";
-import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { syncCurrentUserToDatabase } from "@/lib/sync-user";
 
@@ -34,11 +33,8 @@ export default async function GeneratedAppPage({ params }: GeneratedAppPageProps
     notFound();
   }
 
-  const sidebarApps = await listSidebarGeneratedApps();
-
   return (
-    <AppShell activePage="ai-template-builder" generatedSidebarApps={sidebarApps}>
-      <section className="mx-auto flex w-full max-w-[104rem] flex-col gap-5 px-4 py-6 sm:px-6 lg:px-8">
+    <section className="mx-auto flex w-full max-w-[104rem] flex-col gap-5 px-4 py-6 sm:px-6 lg:px-8">
         <header className="flex flex-col gap-4 border-b border-border pb-5 lg:flex-row lg:items-center lg:justify-between">
           <div className="min-w-0">
             <Button asChild variant="ghost" size="sm" className="mb-3 rounded-lg px-2">
@@ -62,7 +58,6 @@ export default async function GeneratedAppPage({ params }: GeneratedAppPageProps
         </header>
 
         <GeneratedAppPreview appId={app.id} definition={app.definition} appState={app.appState} />
-      </section>
-    </AppShell>
+    </section>
   );
 }
