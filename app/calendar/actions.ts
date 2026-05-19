@@ -190,3 +190,40 @@ export async function scheduleCalendarItem(id: number, scheduledDate: string) {
   revalidatePath("/calendar");
   return toDTO(item);
 }
+
+export async function moveCalendarItemToDraft(id: number) {
+  const userId = await getCurrentDatabaseUserId();
+
+  const [item] = await db
+    .update(calendarItems)
+    .set({
+      scheduledDate: null,
+      isDraft: true,
+      updatedAt: new Date(),
+    })
+    .where(and(eq(calendarItems.id, id), eq(calendarItems.userId, userId)))
+    .returning();
+
+  if (!item) {
+    throw new Error("Calendar item not found.");
+  }
+
+  revalidatePath("/calendar");
+  return toDTO(item);
+}
+
+export async function deleteCalendarItem(id: number) {
+  const userId = await getCurrentDatabaseUserId();
+
+  const [item] = await db
+    .delete(calendarItems)
+    .where(and(eq(calendarItems.id, id), eq(calendarItems.userId, userId)))
+    .returning({ id: calendarItems.id });
+
+  if (!item) {
+    throw new Error("Calendar item not found.");
+  }
+
+  revalidatePath("/calendar");
+  return item.id;
+}

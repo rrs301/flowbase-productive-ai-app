@@ -4,8 +4,6 @@ import { redirect } from "next/navigation";
 
 import { AiAssistantWorkspace } from "@/app/ai-assistant/ai-assistant-workspace";
 import { getAssistantSnapshot } from "@/app/ai-assistant/actions";
-import { listSidebarGeneratedApps } from "@/app/ai-template-builder/actions";
-import { AppShell } from "@/components/app-shell";
 import { syncCurrentUserToDatabase } from "@/lib/sync-user";
 
 export default async function AiAssistantPage() {
@@ -15,11 +13,10 @@ export default async function AiAssistantPage() {
   }
 
   await syncCurrentUserToDatabase();
-  const [snapshot, sidebarApps] = await Promise.all([getAssistantSnapshot(), listSidebarGeneratedApps()]);
+  const snapshot = await getAssistantSnapshot();
 
   return (
-    <AppShell activePage="ai-assistant" generatedSidebarApps={sidebarApps}>
-      <section className="mx-auto flex h-full min-h-0 w-full max-w-[104rem] flex-col px-4 py-5 sm:px-6 lg:px-8">
+    <section className="mx-auto flex h-full min-h-0 w-full max-w-[104rem] flex-col px-4 py-5 sm:px-6 lg:px-8">
         <header className="flex shrink-0 flex-col gap-2 border-b border-border pb-4">
           <p className="flex items-center gap-2 text-sm font-medium text-primary">
             <Bot className="size-4 text-violet-500" aria-hidden="true" />
@@ -31,7 +28,6 @@ export default async function AiAssistantPage() {
         </header>
 
         <AiAssistantWorkspace initialSnapshot={snapshot} />
-      </section>
-    </AppShell>
+    </section>
   );
 }

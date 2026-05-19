@@ -3,6 +3,7 @@ import "@liveblocks/react-ui/styles.css";
 import "./globals.css";
 import type { Metadata } from "next";
 import { LiveblocksAppProvider } from "@/components/liveblocks-app-provider";
+import { WorkspaceShell } from "@/components/workspace-shell";
 
 export const metadata: Metadata = {
   title: "Flowbase | AI Productivity Workspace",
@@ -19,7 +20,9 @@ export default function RootLayout({
     <ClerkProvider>
       <html lang="en">
         <body style={{ margin: 0, padding: 0 }}>
-          <LiveblocksAppProvider>{children}</LiveblocksAppProvider>
+          <LiveblocksAppProvider>
+            <WorkspaceShell>{children}</WorkspaceShell>
+          </LiveblocksAppProvider>
         </body>
       </html>
     </ClerkProvider>

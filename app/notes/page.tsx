@@ -2,11 +2,9 @@ import { currentUser } from "@clerk/nextjs/server";
 import { FileText } from "lucide-react";
 import { redirect } from "next/navigation";
 
-import { listSidebarGeneratedApps } from "@/app/ai-template-builder/actions";
 import { listNotes } from "@/app/notes/actions";
 import { NotesWorkspace } from "@/app/notes/notes-workspace";
 import { listCategoriesForScopes } from "@/app/settings/actions";
-import { AppShell } from "@/components/app-shell";
 import { syncCurrentUserToDatabase } from "@/lib/sync-user";
 
 export default async function NotesPage() {
@@ -16,15 +14,13 @@ export default async function NotesPage() {
   }
 
   await syncCurrentUserToDatabase();
-  const [notes, sidebarApps, categories] = await Promise.all([
+  const [notes, categories] = await Promise.all([
     listNotes(),
-    listSidebarGeneratedApps(),
     listCategoriesForScopes(["note"]),
   ]);
 
   return (
-    <AppShell activePage="notes" generatedSidebarApps={sidebarApps}>
-      <section className="mx-auto flex h-screen max-h-screen w-full max-w-[100rem] flex-col gap-4 px-4 py-4 sm:px-6 lg:px-8">
+    <section className="mx-auto flex h-screen max-h-screen w-full max-w-[100rem] flex-col gap-4 px-4 py-4 sm:px-6 lg:px-8">
         <header className="shrink-0 px-1 py-1">
           <div className="flex items-center gap-3">
             <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-sky-100 text-sky-700">
@@ -40,7 +36,6 @@ export default async function NotesPage() {
         </header>
 
         <NotesWorkspace initialNotes={notes} categories={categories} />
-      </section>
-    </AppShell>
+    </section>
   );
 }
